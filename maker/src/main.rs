@@ -53,6 +53,11 @@ seed. A game is done when playtest passes and the screenshots look right.
 Make log() lines say what happens (got key, room 2, hurt, WIN): bots and playtest read them.";
 
 fn main() {
+    // `kartu playtest . | head` should end quietly, not panic on a closed pipe
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
     let args: Vec<String> = std::env::args().skip(1).collect();
     if let Some(cmd) = args.first().filter(|a| !a.starts_with('-') && a.as_str() != "serve") {
         let code = cli::run(cmd, &args[1..]).unwrap_or_else(|e| {

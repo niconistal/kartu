@@ -13,4 +13,5 @@ path = "src/main.rs"
 
 [dependencies]
 serde_json = "1"
+libc = "0.2"
 kartu-core = { path = "../core", version = "0.1.0" }

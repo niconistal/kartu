@@ -120,6 +120,7 @@ name = "kartu-maker"
 version = "0.1.0"
 dependencies = [
  "kartu-core",
+ "libc",
  "serde_json",
 ]
 

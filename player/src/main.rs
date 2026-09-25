@@ -29,6 +29,11 @@ mod web;
 
 #[cfg(not(target_os = "emscripten"))]
 fn main() {
+    // `kartu run … | head` should end quietly, not panic on a closed pipe
+    #[cfg(unix)]
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
     let args: Vec<String> = std::env::args().collect();
     let code = match args.get(1).map(|s| s.as_str()) {
         Some("run") => headless::run(&args[2..]),
