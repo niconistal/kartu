@@ -52,7 +52,7 @@
 </style>
 </head>
 <body>
-<header><b>KARTU</b><span id="build">P0 spike · Rust core + Lua 5.4 → WebAssembly</span></header>
+<header><b>KARTU</b><span id="build">Rust core + Lua 5.4 → WebAssembly</span></header>
 <div class="screen"><canvas id="c" width="320" height="240"></canvas></div>
 <div class="stats">
   <div class="stat"><small>fps</small><div id="s-fps">–</div></div>
@@ -95,7 +95,7 @@
   <button id="verify">Verify: same pixels as the native builds</button>
   <span id="verify-out">replays a fixed input script for 600 frames and compares the frame hash</span>
 </div>
-<div class="keys">Keys: arrows · Z = A · X = B · A = Y · S = X · Q/W = L/R · Enter = START · Shift = SELECT.<span id="bench-hint"> A toggles stress mode (128 sprites, 4 layers).</span></div>
+<div class="keys"><a href="https://github.com/niconistal/kartu" style="color:var(--accent)">Kartu on GitHub</a> · Keys: arrows · Z = A · X = B · A = Y · S = X · Q/W = L/R · Enter = START · Shift = SELECT.<span id="bench-hint"> A toggles stress mode (128 sprites, 4 layers).</span></div>
 
 <script>
 // Hash of frame 600 of carts/bench with script 200:a,201:,400:right,450: (seed 1),
@@ -201,7 +201,7 @@ async function pick(name) {
   const bench = name === "bench";
   document.getElementById("verify-row").hidden = !bench;
   document.getElementById("bench-hint").hidden = !bench;
-  document.getElementById("build").textContent = bench ? "P0 spike · Rust core + Lua 5.4 → WebAssembly" : titles[name] || name;
+  document.getElementById("build").textContent = bench ? "Rust core + Lua 5.4 → WebAssembly" : titles[name] || name;
   recCancel();
   boot();
 }

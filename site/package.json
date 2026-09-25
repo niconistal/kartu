@@ -1,0 +1,13 @@
+{
+  "name": "kartu-site",
+  "private": true,
+  "description": "Builds the Kartu website: renders docs/*.md and API.md, adds the landing page and the web player.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "marked": "^18.0.0"
+  }
+}

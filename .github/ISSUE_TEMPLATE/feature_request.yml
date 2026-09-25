@@ -1,0 +1,31 @@
+name: Idea or feature
+description: Something the console, the runner or the docs should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The game, the workflow or the situation — before the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like Kartu to do?
+      description: An API sketch, an `assets.cw` line, a command — however you'd write it.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - console API (Lua)
+        - assets.cw format
+        - kits
+        - sound
+        - runner, bots, playtest
+        - AI tools (AGENTS.md, MCP)
+        - web player
+        - handhelds
+        - docs / website
+        - other

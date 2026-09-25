@@ -1,0 +1,34 @@
+name: An AI stumbled
+description: Your agent got stuck, misread the docs or misused a tool while making a cart
+labels: [agent-experience]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        These reports are gold. Kartu is designed to be written by models, so the place a model trips is a design bug, not a model bug.
+  - type: input
+    id: agent
+    attributes:
+      label: Which agent and model?
+      placeholder: Claude Code (Sonnet), Codex, Gemini CLI, Cursor, a local model…
+    validations:
+      required: true
+  - type: textarea
+    id: brief
+    attributes:
+      label: What did you ask for?
+      description: The brief you gave it, as close to verbatim as you can.
+    validations:
+      required: true
+  - type: textarea
+    id: stumble
+    attributes:
+      label: Where did it go wrong?
+      description: What it tried, what the tool or docs told it, and what it did next. Tool logs (`kartu mcp --log FILE`) are perfect here.
+    validations:
+      required: true
+  - type: textarea
+    id: fix
+    attributes:
+      label: What would have helped?
+      description: A clearer error, a doc sentence, a tool that didn't exist, a kit default…

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://niconistal.github.io/kartu/
+    about: Guides, the API reference and the browser player.
+  - name: Show your cart
+    url: https://github.com/niconistal/kartu/discussions
+    about: Made something? Share it — screenshots and a link are enough.

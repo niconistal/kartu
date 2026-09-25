@@ -3,3 +3,5 @@
 # per-cart runner scratch (MCP workspaces)
 .cw/
 __pycache__/
+
+site/node_modules/
