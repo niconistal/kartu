@@ -1,0 +1,16 @@
+# crypt win route (hand-planned from the map; bats never cross it)
+5:a!
+10:right
+130:down
+162:right
+234:down
+282:right
+338:up
+386:right
+394:left
+402:down
+450:right
+474:down
+554:left
+810:down
+826:

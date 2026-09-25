@@ -1,0 +1,8 @@
+# Pirate Treasure: collect all 3 chests while avoiding crabs, then return to the ship
+hero world.hero
+avoid world.enemies 20
+abort world.state == "over"
+tap a
+wait until world.state == "play"
+collect world.pickups
+goto flag exit

@@ -1,0 +1,19 @@
+[package]
+name = "kartu-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+description = "Kartu fantasy console core: a deterministic 320x240 tile/sprite renderer, sandboxed Lua 5.4, text-native assets and a synth"
+readme = "README.md"
+keywords = ["fantasy-console", "gamedev", "lua", "retro", "emulator"]
+categories = ["game-engines", "games", "wasm"]
+repository = "https://github.com/niconistal/kartu"
+homepage = "https://github.com/niconistal/kartu"
+include = ["src/**/*.rs", "kits/*.lua", "examples/*.rs", "README.md", "LICENSE", "CHANGELOG.md"]
+
+[lib]
+name = "kartu_core"
+
+[dependencies]
+mlua = { version = "0.11", features = ["lua54", "vendored"] }

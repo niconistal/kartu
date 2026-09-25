@@ -1,0 +1,21 @@
+# Web player link settings (emcc). Build: scripts/build-web.sh
+[target.wasm32-unknown-emscripten]
+rustflags = [
+  "-C", "link-arg=-sEXPORTED_FUNCTIONS=_main,_cw_boot,_cw_step,_cw_pixels,_cw_hash_hi,_cw_hash_lo,_cw_frame,_cw_error,_cw_audio,_cw_audio_len,_malloc,_free",
+  "-C", "link-arg=-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAP16,HEAPU32,UTF8ToString",
+  "-C", "link-arg=-sMODULARIZE=1",
+  "-C", "link-arg=-sEXPORT_NAME=Kartu",
+  "-C", "link-arg=-sALLOW_MEMORY_GROWTH=1",
+  "-C", "link-arg=-sINITIAL_MEMORY=67108864",
+  "-C", "link-arg=-sENVIRONMENT=web",
+  "-C", "link-arg=-sEXIT_RUNTIME=0",
+  # lets the single-file player hand the wasm bytes in (a page with no sibling files)
+  "-C", "link-arg=-sINCOMING_MODULE_JS_API=wasmBinary,print,printErr",
+  # mlua builds Lua as C++ for emscripten (errors are C++ exceptions, not longjmp)
+  "-C", "link-arg=-lc++",
+  "-C", "link-arg=-lc++abi",
+]
+
+# Miyoo Mini / Onion: static armv7 musl binary, linked by zig (cargo zigbuild).
+[target.armv7-unknown-linux-musleabihf]
+rustflags = ["-C", "target-cpu=cortex-a7"]

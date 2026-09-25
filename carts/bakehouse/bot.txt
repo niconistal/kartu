@@ -1,0 +1,19 @@
+# bakehouse: sweep each room for cookies, dodging ghosts; kitchen -> pantry -> oven room -> cellar
+hero world.hero
+avoid world.enemies 20
+abort world.state == "over"
+tap a
+wait until world.state == "play"
+collect world.pickups
+goto tile 19,7
+hold right 16
+wait until world.room == "pantry"
+collect world.pickups
+goto tile 9,14
+hold down 16
+wait until world.room == "ovenroom"
+collect world.pickups
+goto tile 0,7
+hold left 16
+wait until world.room == "cellar"
+collect world.pickups

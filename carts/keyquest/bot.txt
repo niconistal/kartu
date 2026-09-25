@@ -1,0 +1,20 @@
+# keyquest (probe cart, written before tile flags): name the solid tiles and the hero box
+hero {x = p.x + p.hx, y = p.y + p.hy, w = p.hw, h = p.hh}
+solid wall,torch,block,door,hud
+avoid rooms[room].bats 24
+tap a
+wait until state == "play"
+goto tile 19,8          # east exit of the Hall
+hold right 12
+wait until room == 2
+goto tile 19,8
+hold right 12
+wait until room == 3
+goto rooms[room].key and {x = rooms[room].key.x + 1, y = rooms[room].key.y + 3, w = 15, h = 9}
+goto tile 0,8
+hold left 12
+wait until room == 2
+goto tile 0,8
+hold left 12
+wait until room == 1
+goto tile 9,1            # the exit door (solid: the bot lines up and pushes)

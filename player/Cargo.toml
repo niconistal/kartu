@@ -1,0 +1,13 @@
+[package]
+name = "kartu"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/niconistal/kartu"
+
+[dependencies]
+kartu-core = { path = "../core", version = "0.1.0" }
+
+[target.'cfg(not(target_os = "emscripten"))'.dependencies]
+png = "0.17"
+libc = "0.2"

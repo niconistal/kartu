@@ -1,0 +1,5 @@
+/target
+/dist
+# per-cart runner scratch (MCP workspaces)
+.cw/
+__pycache__/

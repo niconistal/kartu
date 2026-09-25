@@ -1,0 +1,7 @@
+# Star Field: start, then pick up every star in the room while avoiding the slime
+hero world.hero
+avoid world.enemies 20
+abort world.state == "over"
+tap a
+wait until world.state == "play"
+collect world.pickups

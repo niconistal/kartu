@@ -1,0 +1,6 @@
+{
+  "label": "Kartu",
+  "icon": "icon.png",
+  "launch": "launch.sh",
+  "description": "Kartu fantasy console: pick a cart and play"
+}

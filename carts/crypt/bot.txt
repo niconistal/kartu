@@ -1,0 +1,6 @@
+# crypt: get the key, open the south door, walk out
+tap a
+wait until state == "play"
+goto key
+goto flag door
+goto flag exit

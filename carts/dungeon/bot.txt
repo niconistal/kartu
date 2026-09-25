@@ -1,0 +1,21 @@
+# dungeon: east through the gallery to the vault for the key, back west, out the door
+hero world.hero
+fight world.enemies a 30
+abort world.state == "over"
+tap a
+wait until world.state == "play"
+goto tile 19,8
+hold right 16
+wait until world.room == "gallery"
+goto tile 19,8
+hold right 16
+wait until world.room == "vault"
+goto world.pickups[1]
+goto tile 0,8
+hold left 16
+wait until world.room == "gallery"
+goto tile 0,8
+hold left 16
+wait until world.room == "hall"
+goto flag door
+goto flag exit
