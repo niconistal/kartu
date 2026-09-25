@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API reference · Kartu</title>
+<meta name="description" content="A cart is a directory with two text files: main.lua (Lua 5.4) and assets.cw (art + maps).">
+<meta property="og:title" content="API reference · Kartu">
+<meta property="og:description" content="A cart is a directory with two text files: main.lua (Lua 5.4) and assets.cw (art + maps).">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/api.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="making-a-game.html">Making a game</a></li><li><a href="cart-format.html">Cart format</a></li><li><a href="kits.html">Kits</a></li><li><a href="sound.html">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html">The runner</a></li><li><a href="ai-tools.html">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html">The console</a></li><li><a href="handhelds.html">Handhelds</a></li><li><a href="building.html">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html" class="on" aria-current="page">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="kartu-api-reference"><a class="anchor" href="#kartu-api-reference" aria-hidden="true">#</a>Kartu — API reference</h1>
+<p>A cart is a directory with two text files: <code>main.lua</code> (Lua 5.4) and <code>assets.cw</code> (art + maps).
+Screen <strong>320×240</strong>, 60 frames/s, top-left is (0,0), y grows <strong>down</strong>. Nothing else is loaded:
+no <code>require</code>, no files, no clock. Sound: see &quot;Sound&quot; (built-in music and effects work with no setup).</p>
+<p>Example carts (the starter library: <code>asset_search</code> over MCP, or <code>~/.local/share/kartu/library/</code>):
+<code>crypt</code> (the core API by hand, 99 lines of Lua); <code>bakehouse</code> and <code>dungeon</code> (the <strong>top-down kit</strong>,
+~40 lines each: see &quot;Kits&quot; at the end — start there for any top-down game).</p>
+<p>Workflow: <code>kartu new &lt;folder&gt;</code> (a working starter) → edit both files → <code>kartu check &lt;cart&gt;</code> (every
+error at once) → <code>kartu run &lt;cart&gt; --shot-at …</code> to look → write a <strong>bot plan</strong> (<code>bot.txt</code>, below)
+and <code>kartu playtest &lt;cart&gt;</code> to prove it&#39;s winnable and fair. Log <code>WIN</code> when the player wins.</p>
+<h2 id="lifecycle"><a class="anchor" href="#lifecycle" aria-hidden="true">#</a>Lifecycle</h2>
+<pre><code class="hljs language-lua"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">init</span><span class="hljs-params">()</span></span>   <span class="hljs-keyword">end</span>   <span class="hljs-comment">-- once, after assets load</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">update</span><span class="hljs-params">()</span></span> <span class="hljs-keyword">end</span>   <span class="hljs-comment">-- every frame: read buttons, move things</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">draw</span><span class="hljs-params">()</span></span>   <span class="hljs-keyword">end</span>   <span class="hljs-comment">-- every frame: queue sprites/text, set scroll</span></code></pre>
+<ul>
+<li>A frame that runs &gt; ~4M Lua instructions is stopped and the error shown on screen.</li>
+<li>Any runtime error freezes the cart on a red error screen (message + line).</li>
+<li><strong>What resets each frame:</strong> only the sprite and text queues. Everything else <strong>persists until
+you change it</strong>: layer maps and edits (<code>bg.map</code>, <code>bg.tile</code>), <code>bg.scroll</code>, <code>bg.show</code>,
+<code>pal</code> recolours, <code>backdrop</code>, <code>camera</code>. So set maps once (e.g. in <code>init</code> or on a room change), not every frame.</li>
+</ul>
+<p><strong>Coordinates.</strong> World = layer pixels: tile (tx, ty) covers x 16·tx … 16·tx+15. <code>camera(x, y)</code> says
+which world point is at the screen&#39;s top-left; <code>spr</code> and <code>rect</code> take <strong>world</strong> coordinates and the
+camera shifts them (pass <code>screen=true</code> for HUD things). <code>text</code> is always in screen coordinates.
+With the camera at (0,0), which it is until you call it, world = screen.</p>
+<h2 id="drawing"><a class="anchor" href="#drawing" aria-hidden="true">#</a>Drawing</h2>
+<div class="table-wrap"><table><thead><tr><th>call</th><th>what</th></tr></thead><tbody><tr><td><code>spr(name, x, y [, {fx=bool, fy=bool, pal=&quot;palname&quot;, layer=0..3, screen=bool}])</code></td><td>queue a sprite or clip by name at its <strong>top-left</strong> corner (world coords; <code>screen=true</code> ignores the camera). Coords are floored; sprites partly or fully off screen are clipped (fine to draw at negative x). <code>layer</code> = drawn just after BG layer N (default 3 = in front of every BG layer). Within one layer, later calls draw on top. Max 128 sprites/frame; extras are dropped (<code>check</code> warns).</td></tr>
+<tr><td><code>text(str, x, y [, col or opts])</code> → <code>w, h</code></td><td>8×8 monospace ASCII in <strong>screen</strong> coords, drawn on top of <strong>everything</strong>. Lines are 10 px apart; <code>\n</code> starts a new line. Returns the block&#39;s size in px. opts: <code>col=</code>, <code>align=&quot;left&quot;/&quot;center&quot;/&quot;right&quot;</code> (x is the left edge / centre / right edge; each line aligned), <code>wrap=px</code> (word-wrap to that width), <code>bg=col</code> (box behind the block), <code>pad=2</code> (box margin), <code>shadow=col</code> (1 px drop shadow), <code>scale=1..4</code> (big text: 2 = 16 px glyphs).</td></tr>
+<tr><td><code>textw(str [, scale])</code></td><td>width in px of the widest line (<code>#str*8</code> at scale 1).</td></tr>
+<tr><td><code>rect(x, y, w, h, col [, {line=bool, layer=0..3, screen=bool}])</code></td><td>filled box (<code>line=true</code>: 1 px outline). World coords, layered and ordered like sprites (default layer 3, counts toward the 128).</td></tr>
+<tr><td><code>backdrop(&quot;#rrggbb&quot;)</code></td><td>colour behind all layers.</td></tr>
+<tr><td><code>pal(palname, entry, &quot;#rrggbb&quot;)</code></td><td>recolour one palette entry (its char, or 0..15) for every sprite and tile using that palette, from now on. There is no way to read a colour back: keep the originals in Lua if you plan to fade.</td></tr></tbody></table></div>
+<p><strong>Colours</strong> (<code>text</code>, <code>rect</code>): a palette char — <code>&quot;w&quot;</code> from the <strong>first palette declared</strong>, or
+<code>&quot;hero:w&quot;</code> from palette <code>hero</code> — or an entry number 1..15 of the first palette (the old way).
+Chars are the robust choice: reordering a palette doesn&#39;t change them.</p>
+<p>There are no line/circle/pixel primitives.</p>
+<p><strong>Clips</strong> animate from the global frame counter: all copies of a clip are in step, frame
+<code>floor(frame() * fps / 60) % #frames</code>.</p>
+<h2 id="background-layers-4-drawn-0-back-3-front"><a class="anchor" href="#background-layers-4-drawn-0-back-3-front" aria-hidden="true">#</a>Background layers (4, drawn 0 = back … 3 = front)</h2>
+<div class="table-wrap"><table><thead><tr><th>call</th><th>what</th></tr></thead><tbody><tr><td><code>bg.map(layer, &quot;mapname&quot;)</code></td><td>put a copy of a map from assets.cw on a layer (and show it). Later <code>bg.tile</code> edits change the copy, not the asset; calling <code>bg.map</code> again restores the original. Copying is cheap but pointless every frame.</td></tr>
+<tr><td><code>bg.scroll(layer, x, y)</code></td><td>the layer works like a <strong>camera</strong>: the layer pixel (x, y) lands at screen (0, 0). <code>bg.scroll(0, 100, 0)</code> shows the map from x=100 on, so a world point wx appears at screen <code>wx - 100</code>. Layers <strong>wrap</strong> in both directions.</td></tr>
+<tr><td><code>bg.show(layer, bool)</code></td><td>hide/show a layer.</td></tr>
+<tr><td><code>bg.fixed(layer, bool)</code></td><td>pin a layer to the screen: <code>camera()</code> no longer scrolls it (HUD / dialogue layers).</td></tr>
+<tr><td><code>bg.get(layer, tx, ty)</code></td><td>name of the tile in that cell, or nil (empty or outside the map).</td></tr>
+<tr><td><code>bg.flag(layer, tx, ty, &quot;flag&quot;)</code></td><td>does that cell&#39;s tile have the flag?</td></tr>
+<tr><td><code>bg.size(layer)</code></td><td><code>w, h</code> of the layer&#39;s map in tiles (0, 0 before <code>bg.map</code>).</td></tr>
+<tr><td><code>bg.tile(layer, tx, ty, &quot;tilename&quot; or nil)</code></td><td>change one cell of the layer&#39;s copy (nil = empty). tx,ty are 0-based tile coords inside the layer&#39;s map. A layer has <strong>no cells until <code>bg.map</code></strong>: to paint freely, map a blank map first (<code>map blank 20x15</code> of <code>.</code> rows).</td></tr></tbody></table></div>
+<p>Tiles are 16×16. A 320×240 screen is 20×15 tiles. <code>bg.scroll</code> is the manual, per-layer
+version of the camera (parallax: call it after <code>camera</code>); prefer <code>camera</code>, which also moves sprites.</p>
+<h2 id="camera"><a class="anchor" href="#camera" aria-hidden="true">#</a>Camera</h2>
+<div class="table-wrap"><table><thead><tr><th>call</th><th>what</th></tr></thead><tbody><tr><td><code>camera(x, y [, {clamp=layer}])</code> → <code>x, y</code></td><td>world point at the screen&#39;s top-left. Scrolls every layer not <code>bg.fixed</code> and offsets later <code>spr</code>/<code>rect</code> calls, so call it at the <strong>top of <code>draw()</code></strong>. <code>clamp=0</code> keeps the view inside layer 0&#39;s map (no wrap-around at the edges). Returns what it used. Follow a hero: <code>camera(hero.x - 152, hero.y - 112, {clamp=0})</code>.</td></tr>
+<tr><td><code>camera()</code></td><td>current <code>x, y</code>.</td></tr></tbody></table></div>
+<h2 id="world-collision-map-markers"><a class="anchor" href="#world-collision-map-markers" aria-hidden="true">#</a>World: collision, map markers</h2>
+<p>Objects are plain Lua tables with <code>x, y</code> (top-left, world px, fractions fine) and a size, from the
+first of these that&#39;s present:</p>
+<ul>
+<li><code>hit = {x, y, w, h}</code> — box relative to (x, y)</li>
+<li><code>spr = &quot;name&quot;</code> — the sprite&#39;s <code>hit=</code> box from assets.cw, else its full size (clip → first frame)</li>
+<li><code>w = , h =</code> — box at (x, y)</li>
+</ul>
+<p>The box doesn&#39;t flip with <code>fx</code>, so keep hit boxes centred (or derive a flipped sprite, whose
+<code>hit=</code> is mirrored). Collision checks <strong>every layer that has a map</strong>, visible or not (a hidden
+layer makes a fine collision mask). Cells outside a map never collide. The camera doesn&#39;t matter.</p>
+<div class="table-wrap"><table><thead><tr><th>call</th><th>what</th></tr></thead><tbody><tr><td><code>move(o, dx, dy [, &quot;flag&quot;])</code> → <code>blocked_x, blocked_y</code></td><td>move <code>o</code> (writes <code>o.x</code>, <code>o.y</code>), x then y, stopping flush against tiles with the flag (default <code>&quot;solid&quot;</code>). Sliding along walls comes free. An object already inside a wall may walk out. Bounce: <code>local bx, by = move(b, b.vx, b.vy) if bx then b.vx = -b.vx end</code>.</td></tr>
+<tr><td><code>overlap(a, b)</code></td><td>do two objects&#39; boxes overlap? (touching edges don&#39;t count)</td></tr>
+<tr><td><code>hitbox(o)</code> → <code>x, y, w, h</code></td><td>the world box used by all of these.</td></tr>
+<tr><td><code>solid(o [, &quot;flag&quot;])</code>, <code>solid(x, y [, w, h] [, &quot;flag&quot;])</code></td><td>is any flagged tile under the object / point / box?</td></tr>
+<tr><td><code>touching(o, &quot;flag&quot;)</code> → <code>tx, ty, layer</code> or nil</td><td>first flagged cell under the box (doors, spikes, exits). To detect a <strong>solid</strong> door you&#39;re pushing against, test a box nudged 1–2 px that way.</td></tr>
+<tr><td><code>spawns(&quot;map&quot; [, &quot;kind&quot;])</code></td><td>markers from the map&#39;s legend (below): list of <code>{kind=, x=, y=, tx=, ty=}</code> in reading order (x, y = the cell&#39;s top-left px).</td></tr></tbody></table></div>
+<p>An unknown flag name is an error (a typo would otherwise never collide); <code>&quot;solid&quot;</code> with no
+solid tiles just matches nothing (<code>check</code> warns).</p>
+<h2 id="input"><a class="anchor" href="#input" aria-hidden="true">#</a>Input</h2>
+<p><code>btn(b)</code> = held now, <code>btnp(b)</code> = pressed this frame (down now, up last frame). Buttons are
+strings: <code>&quot;left&quot; &quot;right&quot; &quot;up&quot; &quot;down&quot; &quot;a&quot; &quot;b&quot; &quot;x&quot; &quot;y&quot; &quot;l&quot; &quot;r&quot; &quot;start&quot; &quot;select&quot;</code>.
+A button held across a state change stays held: <code>btnp</code> will not fire again until it is
+released and pressed. Keyboard in the web player: arrows, Z = a, X = b, A = y, S = x, Q/W = l/r,
+Enter = start, Shift = select.</p>
+<h2 id="other"><a class="anchor" href="#other" aria-hidden="true">#</a>Other</h2>
+<div class="table-wrap"><table><thead><tr><th>call</th><th>what</th></tr></thead><tbody><tr><td><code>rnd([n])</code></td><td>float in [0, n) (n defaults to 1).</td></tr>
+<tr><td><code>irnd(a, b)</code></td><td>integer in [a, b].</td></tr>
+<tr><td><code>frame()</code></td><td>frames since boot (0 during <code>init</code> and the first update).</td></tr>
+<tr><td><code>sin(t)</code>, <code>cos(t)</code></td><td>t in <strong>turns</strong> (1.0 = full circle), not radians; standard sign (<code>sin(0.25)</code> ≈ 1). A deterministic polynomial, accurate to ~1e-11: <code>sin(0.25)</code> is 0.99999999999, so never compare with <code>==</code>.</td></tr>
+<tr><td><code>palette([name])</code></td><td>current colours of a palette (default: the first declared) as <code>{ {ch=&quot;k&quot;, hex=&quot;#1a1c2c&quot;}, … }</code>: fades start here.</td></tr>
+<tr><td><code>sprsize(name)</code></td><td><code>w, h</code> of a sprite or clip.</td></tr>
+<tr><td><code>has(name)</code></td><td><code>&quot;sprite&quot;</code>, <code>&quot;clip&quot;</code>, <code>&quot;tile&quot;</code>, <code>&quot;map&quot;</code>, <code>&quot;palette&quot;</code> or nil: make art optional.</td></tr>
+<tr><td><code>kit(name)</code></td><td>load a built-in kit (Lua library) — see &quot;Kits&quot;.</td></tr>
+<tr><td><code>log(...)</code> / <code>print(...)</code></td><td>message to the runner&#39;s console as <code>[log fN] …</code> (N = the frame it was logged in).</td></tr></tbody></table></div>
+<p><strong>Randomness is seeded.</strong> Same seed + same inputs ⇒ same game, bit for bit. The runner and the
+web player both use seed 1 unless told otherwise (<code>--seed</code>). Any change to how often you call
+<code>rnd</code> changes everything after it, so replay scripts break when you retune; that&#39;s expected.</p>
+<p>Standard Lua available: <code>string</code>, <code>table</code>, <code>math</code>, <code>utf8</code>, <code>coroutine</code> (no <code>io</code>, <code>os</code>, <code>load</code>,
+<code>require</code>). Lua 5.4 gotchas: <code>string.format(&quot;%d&quot;, 1.5)</code> is an <strong>error</strong> (floats need
+<code>math.floor</code> first, or <code>%.0f</code>); <code>7 // 2</code> is integer division (3), <code>7 / 2</code> is 3.5.</p>
+<h2 id="sound"><a class="anchor" href="#sound" aria-hidden="true">#</a>Sound</h2>
+<p>8 voices, synthesised by the console (24 kHz mono, the same samples on every target). Songs use
+up to 6 voices; sound effects get the rest. <strong>Everything below works with no setup</strong>: the
+console has built-in instruments, sound effects and songs. The top-down kit already plays
+effects for its events (see Kits: <code>sounds</code>, <code>music</code>).</p>
+<div class="table-wrap"><table><thead><tr><th>call</th><th>what</th></tr></thead><tbody><tr><td><code>sfx(name [, {vol=0..2, pitch=semitones}])</code></td><td>play a sound effect. Several can overlap; the oldest is cut if all voices are busy.</td></tr>
+<tr><td><code>music(name [, {vol=, loop=bool}])</code></td><td>start a song (loops unless the song says <code>once</code>). Calling it again with the song that&#39;s already playing does nothing, so it&#39;s safe every frame.</td></tr>
+<tr><td><code>music(nil [, {fade=secs}])</code></td><td>stop the music (optionally fading out).</td></tr>
+<tr><td><code>music_playing()</code></td><td>name of the song playing, or nil.</td></tr>
+<tr><td><code>play(mml [, {inst=&quot;bell&quot;, vol=0.7}])</code></td><td>play a short tune written in MML (below) as a sound effect, e.g. <code>play(&quot;o5 l16 c e g &gt;c4&quot;, {inst=&quot;bell&quot;})</code>.</td></tr>
+<tr><td>`has(name, &quot;sfx&quot;</td><td>&quot;song&quot;</td></tr></tbody></table></div>
+<p><strong>Built in.</strong> Sound effects: <code>coin pickup key heal powerup jump hit hurt swing laser explosion blip select door locked talk step magic win lose start</code>. Songs: <code>adventure</code> (bright, loops), <code>village</code>
+(gentle), <code>cave</code> (slow, minor), <code>boss</code> (fast, tense), <code>victory</code> (short fanfare, plays once).
+Instruments: <code>piano epiano bell marimba organ flute lead softlead strings pad brass pluck harp bass synbass pluckbass square pulse triangle saw sine noise</code> and drums <code>kick snare hat openhat clap tom crash</code>. Hear them all in the <code>jukebox</code> cart.</p>
+<h3 id="your-own-sounds-assetscw"><a class="anchor" href="#your-own-sounds-assetscw" aria-hidden="true">#</a>Your own sounds (assets.cw)</h3>
+<p>Three more keywords. Sounds have their own names (a <code>coin</code> sfx and a <code>coin</code> sprite are fine).
+Declare instruments before the songs that use them.</p>
+<pre><code class="hljs language-text">instrument buzz from=lead duty=0.25 vibrato=0.3,6    -- start from a built-in, change a few things
+instrument twang wave=pluck decay=0.6 lowpass=0.5
+sfx zap wave=saw from=C7 to=C4 len=0.2 vol=0.6       -- a pitch sweep
+sfx chime notes=&quot;o6 l16 c e g &gt;c4&quot; inst=bell         -- or a little tune
+song theme bpm=120                                   -- then one line per channel (max 6), indented
+  lead  @lead o5 l8 [e d c d e e e4]2 | d d d4 e g g4
+  bass  @bass o3 l4 c g c g c g c g
+  drums @drums [k8 h8 s8 h8]4</code></pre>
+<ul>
+<li><strong>Instrument settings</strong>: <code>wave=square|triangle|saw|sine|noise|pluck|fm</code>, <code>duty=0.5</code> (square),
+<code>attack decay sustain release</code> (seconds, sustain 0..1), <code>vol</code>, <code>vibrato=depth,rate[,delay]</code>
+(semitones, Hz, s), <code>slide=semitones,secs</code> (start off-pitch and glide in), <code>lowpass=0..1</code>
+(1 = bright, 0.2 = soft), <code>detune=semitones</code> (a second, detuned oscillator: fuller),
+<code>fm=ratio,index[,decay]</code> (bells, e-pianos), <code>noise=0..1</code> (mix noise in), <code>transpose</code>, <code>note=C2</code>
+(fixed pitch: drums), <code>from=name</code>.</li>
+<li><strong>Sweep sfx</strong>: <code>wave from to len vol duty vibrato noise lowpass env=decay|flat|swell</code>; <code>from</code>/<code>to</code>
+are notes (<code>C5</code>, <code>F#3</code>) or Hz. <strong>Tune sfx</strong>: <code>notes=&quot;MML&quot; inst= bpm=150 vol=</code>.</li>
+<li><strong>Songs</strong>: <code>song name bpm=N [once] [vol=0.8]</code>. Channel lines with the same name join up, so a
+long part can span lines. The song loops at the end of its <strong>longest</strong> channel: make every
+channel the same length (<code>check</code> warns if not, and prints each song&#39;s bars).</li>
+</ul>
+<p><strong>MML</strong> (the notes): <code>c d e f g a b</code> with <code>#</code>/<code>+</code> sharp, <code>-</code> flat, then an optional length
+(<code>4</code> quarter, <code>8</code> eighth, <code>2</code> half, <code>1</code> whole, <code>16</code>, <code>3</code>/<code>6</code>/<code>12</code> triplets; <code>.</code> dotted) ·
+<code>r</code> rest · <code>o4</code> octave (o4 c = middle C), <code>&lt;</code> <code>&gt;</code> down/up an octave · <code>l8</code> default length ·
+<code>v0</code>–<code>v15</code> volume (12) · <code>q1</code>–<code>q8</code> how much of each note sounds (7 = slightly detached, 8 = legato) ·
+<code>^8</code> tie (extend the last note) · <code>@name</code> instrument · <code>[ ... ]3</code> repeat (default 2) · <code>|</code>
+ignored (bar lines for reading). In a <code>@drums</code> channel the letters are drums: <code>k</code> kick, <code>s</code> snare,
+<code>h</code> hat, <code>o</code> open hat, <code>c</code> clap, <code>t</code> tom, <code>x</code> crash, <code>r</code> rest, with lengths as usual (<code>k8 h8 s8 h8</code>).</p>
+<p>Writing music that sounds good: keep melodies in o4–o6 and bass in o2–o3; give each channel a
+role (melody, chords/arpeggio, bass, drums); make every bar add up (4 quarters = <code>l8</code> × 8);
+build from a 4-chord loop (C–G–Am–F, or Am–F–C–G for sad) with the bass playing the roots; lower
+the accompaniment (<code>v8</code>). Copy a built-in song as a starting point: its MML is in the
+<code>sound_songs</code> docs topic.</p>
+<h2 id="assetscw"><a class="anchor" href="#assetscw" aria-hidden="true">#</a>assets.cw</h2>
+<p>Line based. <code>--</code> starts a comment on keyword, palette and legend lines (at line start or after a
+space); <strong>grid rows are read raw</strong>, so no comments there. Rows are trimmed, so indenting is fine.</p>
+<pre><code class="hljs language-text">palette hero            -- ≤16 entries: &lt;one char&gt; &lt;#rrggbb | clear&gt; [label]; first entry must be clear
+  . clear
+  k #1a1c2c ink         -- label is optional, just for you
+  O #ef7d57 orange
+sprite cat 8x8 pal=hero -- 1..64 px each side; then exactly H rows of W palette chars
+..k..k..
+.kOkkOk.
+...
+sprite cat_l from=cat fx             -- derived: no rows. fx, fy, rot=90|180|270 (clockwise), pal=other
+sprite cat_red from=cat pal=villain  -- palette swap: pixels keep their entry number (0..15), so a
+                                     --   palette with the same order recolours the sprite
+sprite hero 16x16 pal=hero hit=4,6,8,9  -- collision box inside the sprite: x,y,w,h (derived copies inherit it, flipped)
+clip cat_run fps=8 cat.1 cat.2       -- animation: sprite names, in order; spr(&quot;cat_run&quot;, ...) plays it
+tile wall 16x16 pal=room             -- tiles are always 16x16; 16 rows of 16 chars
+tile wall_r from=wall fx             -- tiles derive the same way (from a tile or a 16x16 sprite)
+tile door 16x16 pal=room flags=solid,door   -- flags: any words (max 16 distinct); `solid` is what move() stops at
+map level1 20x15                     -- W x H tiles (max 256x256)
+legend # wall  , floor               -- &lt;char&gt; &lt;tilename&gt; pairs, any spacing; several legend lines OK
+legend @ @hero:floor  b @bat:floor   -- spawn markers: @kind (empty cell) or @kind:tile (that tile under it)
+####################                 -- then exactly H rows of W legend chars</code></pre>
+<p>Markers put monsters, pickups and the start point in the map picture itself; read them with
+<code>spawns(&quot;level1&quot;)</code>, e.g. <code>local h = spawns(&quot;level1&quot;, &quot;hero&quot;)[1]; hero = {x=h.x, y=h.y, spr=&quot;hero&quot;}</code>.</p>
+<ul>
+<li><code>.</code> means an empty cell unless the legend redefines it; <code>&lt;char&gt; empty</code> makes another empty char.</li>
+<li>Max 16 palettes, 16 entries each. A palette can be used by both sprites and tiles.</li>
+<li><strong>Names:</strong> palettes have their own namespace (<code>palette car</code> + <code>sprite car</code> is fine).
+Sprites, clips, tiles and maps share one (a sprite and a tile can&#39;t both be <code>grass</code>). No spaces in names.</li>
+<li>Declare palettes before the sprites that use them, and sprites before a <code>from=</code> that copies them.
+Clips and maps may name things declared later.</li>
+<li>Every error names the line. <code>kartu check</code> lists all of them in one go.</li>
+</ul>
+<h3 id="importing-art"><a class="anchor" href="#importing-art" aria-hidden="true">#</a>Importing art</h3>
+<p>Bring your own image generator: <code>kartu art import</code> turns any PNG into assets.cw text.</p>
+<pre><code class="hljs language-sh">kartu art import hero.png --name hero --size 32 --outline            <span class="hljs-comment"># print palette + sprite</span>
+kartu art import boss.png --name boss --size 128 --append mycart     <span class="hljs-comment"># add to mycart/assets.cw</span>
+kartu art import coin.png --name coin --size 12 --pal main --append mycart   <span class="hljs-comment"># reuse a palette</span></code></pre>
+<p>It removes the background where it touches the border (a flood fill, so the same colour inside
+the subject survives; transparent pixels always go), crops to the subject, area-averages it
+down, and quantises to ≤15 colours, darkest first (entry chars <code>1</code>…<code>f</code>, <code>.</code> clear).</p>
+<ul>
+<li><code>--size N</code> = longest side N, aspect kept; <code>--size WxH</code> = exactly that. Default 32, max 256.
+Over 64 px the result is cut into <code>NAME_0_0</code>, <code>NAME_1_0</code>… (column_row) 64 px pieces, empty
+ones skipped; a comment above them gives each piece&#39;s offset.</li>
+<li><code>--bg auto</code> (default) keys out the border&#39;s main colour if there is one; <code>black</code>, <code>none</code>,
+or <code>#rrggbb</code>; <code>--tol N</code> (34) = how far per channel still counts as background.</li>
+<li><code>--colors N</code> (15), <code>--outline</code> (1 px, darkest colour), <code>--dither 0.3</code> (ordered, 0..1).</li>
+<li><code>--out FILE</code>, or <code>--append CART</code>: refuses name clashes and re-checks the whole assets.cw
+before writing. <code>--pal NAME</code> (needs <code>--append</code>) maps onto one of the cart&#39;s palettes instead
+of making a new one: handy when you are near the 16-palette limit.</li>
+<li>PNG only (any colour type); convert other formats first. Same input, same output.</li>
+<li>Generate on a flat background (black or one solid colour), subject centred, not touching the
+edges. Small sprites read best from simple, high-contrast images.</li>
+</ul>
+<h2 id="runner"><a class="anchor" href="#runner" aria-hidden="true">#</a>Runner</h2>
+<p><code>kartu help</code> prints all of this.</p>
+<pre><code class="hljs language-sh">kartu check &lt;cart&gt; [--frames 120] [--script F]
+kartu run   &lt;cart&gt; [--frames N] [--seed S] [--script FILE] [--press <span class="hljs-string">&quot;S,S&quot;</span>]
+                        [--<span class="hljs-keyword">until</span> TEXT] [--shot out.png] [--shot-at 70,190] [--shot-every N]
+                        [--scale 2] [--record FILE]</code></pre>
+<ul>
+<li><p><code>check</code>: all assets.cw errors, main.lua syntax, unknown names in literal
+<code>spr(&quot;…&quot;)</code>/<code>bg.map</code>/<code>bg.tile</code>/<code>pal</code>/<code>spawns</code> arguments and unknown flag names (with a
+did-you-mean), <code>move()</code> with no solid tiles, then a smoke run of
+N frames for runtime errors and dropped sprites. Exit 1 on any error.</p>
+</li>
+<li><p><code>run</code>: runs N frames (default 600) headless and prints <code>[log fN]</code> lines and the final
+frame hash. The run <strong>stops at a cart error</strong> (exit 2) and at <code>--until</code>.</p>
+</li>
+<li><p><code>--until WIN</code>: stop after the first frame whose log contains <code>WIN</code>; exit 3 if it never
+shows up. This is the win check: <code>kartu run cart --frames 5000 --script win.txt --until WIN</code>.</p>
+</li>
+<li><p><code>--shot</code> = the last frame run. <code>--shot-at 70,190</code> saves <code>out-f70.png</code>, <code>out-f190.png</code>
+(named after <code>--shot</code>, default <code>shot.png</code>). <code>--shot-every 60</code> does every 60th frame.
+A shot of frame F is the picture after update+draw of frame F.</p>
+</li>
+<li><p><code>--record FILE</code>: writes the buttons actually used as a script (merges <code>--script</code> + <code>--press</code>).
+The <strong>web player</strong> has a ● Record button that does the same for a human playthrough: it
+restarts the cart at seed 1 and gives you the script plus the hash to check it against.</p>
+</li>
+<li><p><code>--watch &quot;hero.x;hero.y;state&quot;</code>: print Lua expressions every <code>--watch-every N</code> frames (60).
+They see the cart&#39;s globals <strong>and its file-level <code>local</code>s</strong>, so no <code>log()</code> calls needed.</p>
+</li>
+<li><p><code>--dump F,F|end</code>: the cart&#39;s whole state (its globals + file-level locals, no functions) as JSON.</p>
+</li>
+<li><p><code>--save FILE</code> / <code>--load FILE</code>: a save is the input that got there plus the frame hash; loading
+replays it from boot (fast) and refuses if the hash no longer matches (cart changed).</p>
+</li>
+<li><p><code>--bot PLAN</code>: let a goal bot play (below). Exit 4 if it fails.</p>
+</li>
+<li><p><code>--sounds</code> prints <code>[sound fN] sfx coin</code> / <code>music theme</code> lines; <code>--wav out.wav</code> saves the sound;
+the summary gets an <code>audio &lt;hash&gt; …</code> line (peak level, clipped samples) when anything played.
+<code>kartu sound &lt;cart&gt; --song NAME|--sfx NAME [--wav F]</code> renders one sound on its own;
+with no name it lists everything the cart can play.</p>
+</li>
+</ul>
+<h3 id="bots---bot-plantxt"><a class="anchor" href="#bots---bot-plantxt" aria-hidden="true">#</a>Bots (<code>--bot plan.txt</code>)</h3>
+<p>A plan says <em>what</em> to do; the bot works out the buttons each frame: it reads the hero&#39;s box,
+path-finds over the live tile map (solid = tiles with the <code>solid</code> flag, doors that opened count)
+and steers. Knocked off course? It replans next frame. It doesn&#39;t fight or time jumps.</p>
+<pre><code class="hljs language-text"># one step per line; any step may end with max=N (frames before it fails)
+hero hero                   # expression for the player object (default `hero`); any Lua
+                            #   expression, e.g. {x = p.x + p.hx, y = p.y + p.hy, w = p.hw, h = p.hh}
+solid wall,block            # also treat these tiles as solid (carts without flags)
+avoid bats 24               # route around these objects (a list or one; alive=false/dead=true skipped)
+tap a                       # press a for one frame
+hold right 12               # hold buttons for N frames (walk off a screen edge)
+wait 30                     # N frames of nothing
+wait until state == &quot;play&quot;  # until a Lua expression is true
+goto key                    # walk until the hero overlaps it; done at once if it&#x27;s nil (picked up)
+goto flag door              # nearest tile with that flag; a solid one is pushed into (locked door)
+goto tile 19,8              # walk into that tile</code></pre>
+<p><code>[bot fN]</code> lines report each step (<code>reached</code>, <code>gone</code>, <code>pushed into it</code>) or why it failed: <code>no path from tile (3,2) to (35,6)</code> is a <strong>softlock or a map bug</strong>, <code>stuck at …</code> means something blocks it.
+Examples: <code>crypt/bot.txt</code>, <code>keyquest/bot.txt</code> in the starter library (a cart without flags or <code>hero</code>).</p>
+<p><strong>Playtest:</strong> <code>kartu playtest &lt;cart&gt;</code> runs <code>bot.txt</code> on seeds 1-3 and decides won / win time /
+stuck / errors / unfair hits (hurt within 1 s of arriving) itself: PASS only if the bot wins on
+every seed. Exit 0 on PASS. Make the game&#39;s <code>log()</code> lines say what happens (<code>ouch 2</code>, <code>got key</code>,
+<code>room 3</code>, <code>WIN</code>): they&#39;re what the playtest reads.</p>
+<h3 id="input-scripts---script-file---press"><a class="anchor" href="#input-scripts---script-file---press" aria-hidden="true">#</a>Input scripts (<code>--script FILE</code>, <code>--press</code>)</h3>
+<p>One step per line, or separated by commas/spaces:</p>
+<pre><code class="hljs language-text"># comments start with # or --, blank lines are fine
+30:right+a    from frame 30 on, hold exactly these buttons (replaces what was held)
+40:           release everything
++12:up        frame relative to the previous step (here 52)
+60:a!         tap: add `a` on top of whatever is held, for 1 frame
+70:b!5        add `b` for 5 frames</code></pre>
+<p>Frame F = the frame whose <code>update()</code> sees those buttons, the one logged <code>[log fF]</code>.
+<code>btnp</code> fires in frame F only if the button was up in frame F-1: to press A twice, release
+it in between (<code>100:a!</code>, <code>110:a!</code>). A tap on a button that is already held does nothing.</p>
+<h2 id="kits"><a class="anchor" href="#kits" aria-hidden="true">#</a>Kits</h2>
+<p>A kit is a Lua library built into the console: <code>local td = kit(&quot;topdown&quot;)</code>. It runs as cart
+code (same budget), so anything it does you could do by hand, and you can mix both.</p>
+<h3 id="top-down-kit-kitquottopdownquot"><a class="anchor" href="#top-down-kit-kitquottopdownquot" aria-hidden="true">#</a>Top-down kit (<code>kit(&quot;topdown&quot;)</code>)</h3>
+<p>Zelda-like adventures: hero, rooms, enemies, pickups, doors, dialogue, HUD, title/win/lose
+screens, y-sorted drawing. A whole cart:</p>
+<pre><code class="hljs language-lua"><span class="hljs-keyword">local</span> td = kit(<span class="hljs-string">&quot;topdown&quot;</span>)
+td.setup {
+  title = <span class="hljs-string">&quot;DUNGEON&quot;</span>, intro = <span class="hljs-string">&quot;Find the key. A swings your sword.&quot;</span>,
+  rooms = { { <span class="hljs-string">&quot;hall&quot;</span>, <span class="hljs-string">&quot;gallery&quot;</span>, <span class="hljs-string">&quot;vault&quot;</span> } },            <span class="hljs-comment">-- or map = &quot;one_big_map&quot;</span>
+  hero = { spr = <span class="hljs-string">&quot;knight1&quot;</span>, walk = <span class="hljs-string">&quot;knight_walk&quot;</span>, hp = <span class="hljs-number">3</span> },
+  attack = { btn = <span class="hljs-string">&quot;a&quot;</span>, spr = <span class="hljs-string">&quot;sword&quot;</span>, spr_v = <span class="hljs-string">&quot;swordv&quot;</span> },
+  enemies = { bat = { spr = <span class="hljs-string">&quot;bat_fly&quot;</span>, move = <span class="hljs-string">&quot;chase&quot;</span>, speed = <span class="hljs-number">0.8</span>, hp = <span class="hljs-number">1</span>, drop = <span class="hljs-string">&quot;heart&quot;</span> } },
+  pickups = { key = { spr = <span class="hljs-string">&quot;key&quot;</span>, toast = <span class="hljs-string">&quot;You found the key!&quot;</span> }, heart = { spr = <span class="hljs-string">&quot;heart&quot;</span>, heal = <span class="hljs-number">1</span> } },
+  doors = { door = { needs = <span class="hljs-string">&quot;key&quot;</span>, opens = <span class="hljs-string">&quot;dooropen&quot;</span> } },   <span class="hljs-comment">-- tile names</span>
+  win = <span class="hljs-string">&quot;flag:exit&quot;</span>,                                          <span class="hljs-comment">-- dooropen has flags=exit</span>
+  hud = { hearts = { <span class="hljs-string">&quot;heart&quot;</span>, <span class="hljs-string">&quot;heart0&quot;</span> }, show = { <span class="hljs-string">&quot;key&quot;</span> } },
+}
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">update</span><span class="hljs-params">()</span></span> td.update() <span class="hljs-keyword">end</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">draw</span><span class="hljs-params">()</span></span> td.draw() <span class="hljs-keyword">end</span></code></pre>
+<p>and in assets.cw, place things with markers, one kind per <code>@name</code>:
+<code>legend P @hero:floor  B @bat:floor  K @key:floor</code>.</p>
+<p>Rules of thumb:</p>
+<ul>
+<li>Room maps are 20x15; the top 14 px are under the HUD, so make row 0 wall (or a copy of row 1
+where a doorway leads up). Leave gaps in the outer wall where rooms connect (grid neighbours).</li>
+<li>Give solid tiles <code>flags=solid</code>; a door tile <code>flags=solid,door</code>; its open version <code>flags=exit</code>
+if walking through it wins.</li>
+<li>Sprites face <strong>right</strong>; the kit flips them for left. Without <code>hit=</code>, the hero collides with its
+lower body and enemies with a slightly smaller box (fair, fits 1-tile gaps).</li>
+<li><code>ui</code> colours default to the darkest/lightest entries of the first palette; set them if that&#39;s wrong.</li>
+<li>Don&#39;t put an enemy within ~6 tiles of a room entrance or the start: playtest flags hits within
+1 s of arriving as unfair.</li>
+</ul>
+<p>Config reference (from the kit&#39;s source):</p>
+<pre><code class="hljs language-text">
+  local td = kit(&quot;topdown&quot;)
+  td.setup { title = &quot;CRYPT&quot;, map = &quot;crypt&quot;, hero = { spr = &quot;knight&quot; }, ... }
+  function update() td.update() end
+  function draw() td.draw() end
+
+Everything lives in the global `world` (hero, enemies, pickups, npcs, room, state,
+items), so bots, playtest and your own code can read it. Things are placed with
+map markers: `legend @ @hero:floor  b @bat:floor  k @key:floor`, and each marker kind
+must be a key of cfg.enemies, cfg.pickups or cfg.npcs (or &quot;hero&quot;).
+
+cfg fields (all optional except map/rooms and hero):
+  map = &quot;name&quot;                 one map (scrolls if bigger than the screen)
+  rooms = {{&quot;a&quot;,&quot;b&quot;},{&quot;c&quot;,&quot;d&quot;}}  a grid of maps; walking off an edge enters the neighbour
+  names = { a = &quot;KITCHEN&quot; }    room names for the HUD (default: map name in capitals)
+  hero = { spr=, hit={x,y,w,h}, walk=, up=, down=, walk_up=, walk_down=, left=, walk_left=,
+           speed=1.5, hp=3, diag=true }
+           spr/walk face right (flipped for left unless left= is given); up/down optional
+           hit: default = the sprite&#x27;s hit=, else a lower-body box (fits 1-tile gaps)
+  attack = { btn=&quot;a&quot;, spr=, spr_v=, reach=14, time=12, damage=1 }   (no attack if absent)
+  enemies = { bat = { spr=, hit=, hp=1, speed=1, move=&quot;still|bounce_x|bounce_y|wander|chase&quot;,
+                      range=80, damage=1, flying=false, drop=&quot;heart&quot; } }
+  pickups = { key = { spr=, item=&quot;key&quot; (default: the kind), heal=0, score=0,
+                      goal=false, say=, toast= } }
+  npcs = { owl = { spr=, name=&quot;OWL&quot;, say = {&quot;line&quot;, &quot;line&quot;} or function(world) ... end } }
+  doors = { door = { needs=&quot;key&quot;, consume=true, opens=&quot;dooropen&quot;, locked=&quot;Locked.&quot; } }
+  win = &quot;flag:exit&quot; | &quot;collect&quot; (every goal pickup) | &quot;collect:cookie&quot; | function(world)
+  title=, intro=, win_text=&quot;YOU WIN!&quot;, lose_text=&quot;GAME OVER&quot;
+  hud = { hearts = {&quot;heart&quot;, &quot;heart0&quot;}, show = {&quot;key&quot;, &quot;cookie&quot;} } or false
+  sounds = { pickup=&quot;coin&quot;, hurt=&quot;hurt&quot;, ... } override the default sfx per event, or
+           sounds = false for silence. Events and defaults: start=start pickup=pickup
+           goal=coin key=key heal=heal hurt=hurt swing=swing hit=hit defeat=explosion
+           door=door locked=locked talk=talk win=win lose=lose (a pickup&#x27;s own sfx= wins)
+  music = &quot;song&quot;  or { title=, play=, win=, lose=, rooms = { cellar = &quot;cave&quot; } }
+           songs from assets.cw or built in (adventure cave village boss victory)
+  ui = { ink=&quot;k&quot;, paper=&quot;w&quot;, accent=&quot;y&quot; }  (default: darkest / lightest of the 1st palette)
+  on = { start=fn(w), hurt=fn(w, n), defeat=fn(w, e), pickup=fn(w, p), room=fn(w, name),
+         update=fn(w), draw=fn(w) (world space, after actors), hud=fn(w) }
+
+Logs (what bots and playtest read): state &lt;s&gt;, room &lt;name&gt;, got &lt;kind&gt;, hurt hp=&lt;n&gt;,
+defeated &lt;kind&gt;, door open, locked, talk &lt;npc&gt;, WIN, LOSE.</code></pre>
+<p>Other calls: <code>td.say(lines [, who])</code> dialogue, <code>td.toast(msg)</code>, <code>td.box(x, y, w, h)</code> framed panel,
+<code>td.spawn(kind, x, y)</code>, <code>td.hurt(n)</code>, <code>td.win()</code>, <code>td.lose()</code>, <code>td.goals_left([kind])</code>.</p>
+<p><strong>World for bots:</strong> everything is in the global <code>world</code>: <code>world.hero</code>, <code>world.enemies</code>,
+<code>world.pickups</code>, <code>world.npcs</code> (current room), <code>world.room</code>, <code>world.state</code>
+(<code>title|play|win|over|pause</code>), <code>world.items</code> (inventory counts), <code>world.talk</code>. A kit bot plan:</p>
+<pre><code class="hljs language-text">hero world.hero
+avoid world.enemies 20          # or: fight world.enemies a 30  (if the hero has an attack)
+abort world.state == &quot;over&quot;
+tap a
+wait until world.state == &quot;play&quot;
+collect world.pickups           # everything in this room
+goto tile 19,7                  # walk to the east doorway…
+hold right 16                   # …and through it
+wait until world.room == &quot;pantry&quot;</code></pre>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/API.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

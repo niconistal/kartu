@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cart format · Kartu</title>
+<meta name="description" content="All of a cart's art, maps and sounds live in one plain-text file, assets.cw. It is line">
+<meta property="og:title" content="Cart format · Kartu">
+<meta property="og:description" content="All of a cart's art, maps and sounds live in one plain-text file, assets.cw. It is line">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/cart-format.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="making-a-game.html">Making a game</a></li><li><a href="cart-format.html" class="on" aria-current="page">Cart format</a></li><li><a href="kits.html">Kits</a></li><li><a href="sound.html">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html">The runner</a></li><li><a href="ai-tools.html">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html">The console</a></li><li><a href="handhelds.html">Handhelds</a></li><li><a href="building.html">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="cart-format-assetscw"><a class="anchor" href="#cart-format-assetscw" aria-hidden="true">#</a>Cart format: <code>assets.cw</code></h1>
+<p>All of a cart&#39;s art, maps and sounds live in one plain-text file, <code>assets.cw</code>. It is line
+based and meant to be read: a sprite is a grid of palette characters, a map is a picture made
+of legend characters, a song is notation. Every error names its line, and <code>kartu check</code> lists
+all of them in one go.</p>
+<p><code>--</code> starts a comment on keyword, palette and legend lines (at the start of a line or after a
+space). <strong>Grid rows are read raw</strong>, so no comments inside a sprite or map. Rows are trimmed,
+so indenting is fine.</p>
+<h2 id="palettes"><a class="anchor" href="#palettes" aria-hidden="true">#</a>Palettes</h2>
+<pre><code class="hljs language-text">palette hero             -- up to 16 entries: &lt;one char&gt; &lt;#rrggbb | clear&gt; [label]
+  . clear                -- the first entry must be clear
+  k #1a1c2c ink          -- the label is optional, just for you
+  O #ef7d57 orange</code></pre>
+<ul>
+<li>Up to <strong>16 palettes</strong> of 16 entries (15 colours + clear). A palette can be used by both
+sprites and tiles.</li>
+<li>Palettes have their own namespace: <code>palette cat</code> and <code>sprite cat</code> can coexist.</li>
+<li>Declare a palette before the sprites that use it.</li>
+<li>Colours are 24-bit in the file and 15-bit on the console (5 bits per channel).</li>
+<li><code>pal(palname, entry, &quot;#rrggbb&quot;)</code> in Lua recolours one entry for everything that uses that
+palette, from then on — the tool for fades, damage flashes and day/night.</li>
+</ul>
+<p>The <strong>first palette declared</strong> is special: its characters are what <code>text</code> and <code>rect</code> accept
+as colours (<code>&quot;w&quot;</code>), and it supplies the kit&#39;s default UI colours. <code>&quot;hero:w&quot;</code> names an entry in
+another palette.</p>
+<h2 id="sprites"><a class="anchor" href="#sprites" aria-hidden="true">#</a>Sprites</h2>
+<pre><code class="hljs language-text">sprite cat 8x8 pal=hero        -- 1..64 px each side; then exactly H rows of W palette chars
+..k..k..
+.kOkkOk.
+.kOOOOk.
+.kOkOOk.
+..kkkk..
+.kOOOOk.
+..k..k..
+........</code></pre>
+<p>Derived sprites have no rows:</p>
+<pre><code class="hljs language-text">sprite cat_l   from=cat fx             -- flipped: fx, fy, rot=90|180|270 (clockwise)
+sprite cat_red from=cat pal=villain    -- palette swap: pixels keep their entry number, so a palette
+                                       --   with the same order recolours the sprite
+sprite hero 16x16 pal=hero hit=4,6,8,9 -- a collision box inside the sprite: x,y,w,h</code></pre>
+<p>A <code>hit=</code> box is what <code>move</code>, <code>overlap</code> and the bots use for that sprite; derived copies inherit
+it, mirrored when flipped. Without one, an object&#39;s box is the whole sprite (the kit chooses a
+lower-body box for the hero so it fits through one-tile gaps).</p>
+<h2 id="clips"><a class="anchor" href="#clips" aria-hidden="true">#</a>Clips</h2>
+<pre><code class="hljs language-text">clip cat_run fps=8 cat.1 cat.2 cat.3   -- sprite names, in order</code></pre>
+<p><code>spr(&quot;cat_run&quot;, x, y)</code> plays the animation. Clips run from the global frame counter, so every
+copy of a clip is in step: frame <code>floor(frame() * fps / 60) % #frames</code>.</p>
+<h2 id="tiles"><a class="anchor" href="#tiles" aria-hidden="true">#</a>Tiles</h2>
+<pre><code class="hljs language-text">tile wall 16x16 pal=room                    -- tiles are always 16x16: 16 rows of 16 chars
+tile wall_r from=wall fx                    -- tiles derive like sprites (from a tile or a 16x16 sprite)
+tile door 16x16 pal=room flags=solid,door   -- flags: any words, up to 16 distinct per cart</code></pre>
+<p><strong>Flags</strong> are how the game reads the map. <code>solid</code> is what <code>move()</code> stops at; a <code>door</code> flag
+lets you find doors with <code>touching(o, &quot;door&quot;)</code>; an <code>exit</code> flag can be the win condition. An
+unknown flag name in Lua is an error (a typo would otherwise never collide).</p>
+<h2 id="maps-and-legends"><a class="anchor" href="#maps-and-legends" aria-hidden="true">#</a>Maps and legends</h2>
+<pre><code class="hljs language-text">map hall 20x15                              -- W x H tiles, up to 256 x 256
+legend # wall  T torch  o block  E door  . floor
+legend P @hero:floor  B @bat:floor  K @key:floor
+####T####E####T#####
+#..................#
+#...o..........o...#
+#.....P.............
+#..........B.......#
+####################</code></pre>
+<ul>
+<li>A legend line is <code>&lt;char&gt; &lt;tilename&gt;</code> pairs, any spacing; several legend lines are fine.</li>
+<li><code>.</code> is an empty cell unless the legend redefines it; <code>&lt;char&gt; empty</code> makes another empty char.</li>
+<li><strong>Markers</strong> put the hero, enemies and pickups in the map picture itself: <code>@kind</code> on an empty
+cell, or <code>@kind:tile</code> with that tile underneath. Read them with <code>spawns(&quot;hall&quot;)</code> →
+<code>{ {kind=&quot;hero&quot;, x=, y=, tx=, ty=}, … }</code>, or let the <a href="kits.html">top-down kit</a> do it.</li>
+<li>A map is 20 × 15 tiles for one screen; bigger maps scroll with <code>camera()</code>.</li>
+</ul>
+<p>Sprites, clips, tiles and maps share one namespace (a sprite and a tile can&#39;t both be called
+<code>grass</code>). No spaces in names. Clips and maps may name things declared later; <code>from=</code> may not.</p>
+<h2 id="sounds"><a class="anchor" href="#sounds" aria-hidden="true">#</a>Sounds</h2>
+<p>Three more keywords — <code>instrument</code>, <code>sfx</code> and <code>song</code> — with their own namespace. They are
+covered in <a href="sound.html">Sound</a>; the short version:</p>
+<pre><code class="hljs language-text">instrument twang wave=pluck decay=0.6 lowpass=0.5
+sfx zap wave=saw from=C7 to=C4 len=0.2 vol=0.6
+song theme bpm=120
+  lead  @lead o5 l8 [e d c d e e e4]2 | d d d4 e g g4
+  bass  @bass o3 l4 c g c g c g c g
+  drums @drums [k8 h8 s8 h8]4</code></pre>
+<h2 id="importing-art"><a class="anchor" href="#importing-art" aria-hidden="true">#</a>Importing art</h2>
+<p>Bring your own image generator or paint program: <code>kartu art import</code> turns any PNG into
+<code>assets.cw</code> text.</p>
+<pre><code class="hljs language-sh">kartu art import hero.png --name hero --size 32 --outline          <span class="hljs-comment"># print palette + sprite</span>
+kartu art import boss.png --name boss --size 128 --append mycart   <span class="hljs-comment"># add to mycart/assets.cw</span>
+kartu art import coin.png --name coin --size 12 --pal main --append mycart   <span class="hljs-comment"># reuse a palette</span></code></pre>
+<p>It keys out the background where it touches the border (a flood fill, so the same colour
+inside the subject survives; transparent pixels always go), crops to the subject, area-averages
+it down and quantises to at most 15 colours, darkest first.</p>
+<ul>
+<li><code>--size N</code> = longest side N, aspect kept; <code>--size WxH</code> = exactly that. Default 32, max 256.
+Over 64 px the result is cut into <code>NAME_0_0</code>, <code>NAME_1_0</code>… (column_row) pieces of 64 px, with
+a comment giving each piece&#39;s offset.</li>
+<li><code>--bg auto</code> (default) keys out the border&#39;s main colour; also <code>black</code>, <code>none</code> or <code>#rrggbb</code>.
+<code>--tol N</code> (34) is how far per channel still counts as background.</li>
+<li><code>--colors N</code> (15), <code>--outline</code> (1 px, darkest colour), <code>--dither 0.3</code> (ordered, 0..1).</li>
+<li><code>--append CART</code> refuses name clashes and re-checks the whole file before writing.
+<code>--pal NAME</code> maps onto one of the cart&#39;s existing palettes instead of making a new one.</li>
+<li>Same input, same output. PNG only.</li>
+</ul>
+<p>Generate on a flat background (black or one solid colour), subject centred and not touching
+the edges. Small sprites read best from simple, high-contrast images.</p>
+<h2 id="limits"><a class="anchor" href="#limits" aria-hidden="true">#</a>Limits</h2>
+<div class="table-wrap"><table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>palettes</td><td>16 × 16 entries (first entry clear)</td></tr>
+<tr><td>sprites</td><td>1–64 px per side; 128 drawn per frame (extras dropped, <code>check</code> warns)</td></tr>
+<tr><td>tiles</td><td>16 × 16; 16 distinct flag names</td></tr>
+<tr><td>maps</td><td>up to 256 × 256 tiles; 4 layers on screen</td></tr>
+<tr><td>names</td><td>one namespace for sprites/clips/tiles/maps; palettes and sounds have their own</td></tr></tbody></table></div>
+<p>Reference: <a href="api.html#assetscw">API.md → assets.cw</a></p>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/docs/cart-format.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

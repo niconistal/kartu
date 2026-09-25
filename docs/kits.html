@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kits · Kartu</title>
+<meta name="description" content="A kit is a genre library built into the console. local td = kit(&quot;topdown&quot;) loads it. Kits">
+<meta property="og:title" content="Kits · Kartu">
+<meta property="og:description" content="A kit is a genre library built into the console. local td = kit(&quot;topdown&quot;) loads it. Kits">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/kits.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="making-a-game.html">Making a game</a></li><li><a href="cart-format.html">Cart format</a></li><li><a href="kits.html" class="on" aria-current="page">Kits</a></li><li><a href="sound.html">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html">The runner</a></li><li><a href="ai-tools.html">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html">The console</a></li><li><a href="handhelds.html">Handhelds</a></li><li><a href="building.html">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="kits"><a class="anchor" href="#kits" aria-hidden="true">#</a>Kits</h1>
+<p>A <strong>kit</strong> is a genre library built into the console. <code>local td = kit(&quot;topdown&quot;)</code> loads it. Kits
+run as ordinary cart code — same sandbox, same budget — so anything a kit does you could do by
+hand, and you can mix both freely. They exist because the first thirty lines of every game
+in a genre are the same thirty lines, and a model (or a person) should spend its attention
+on what is different about <em>this</em> game.</p>
+<p>Today there is one kit. A platformer kit and a shoot-&#39;em-up kit are the most wanted
+contributions.</p>
+<h2 id="the-top-down-kit"><a class="anchor" href="#the-top-down-kit" aria-hidden="true">#</a>The top-down kit</h2>
+<p>Zelda-like adventures: a hero, rooms, enemies, pickups, locked doors, NPCs with dialogue, a HUD,
+title / win / lose screens, y-sorted drawing, sound for every event. A whole cart:</p>
+<pre><code class="hljs language-lua"><span class="hljs-keyword">local</span> td = kit(<span class="hljs-string">&quot;topdown&quot;</span>)
+td.setup {
+  title = <span class="hljs-string">&quot;DUNGEON&quot;</span>, intro = <span class="hljs-string">&quot;Find the key. A swings your sword.&quot;</span>,
+  rooms = { { <span class="hljs-string">&quot;hall&quot;</span>, <span class="hljs-string">&quot;gallery&quot;</span>, <span class="hljs-string">&quot;vault&quot;</span> } },        <span class="hljs-comment">-- or map = &quot;one_big_map&quot;</span>
+  hero = { spr = <span class="hljs-string">&quot;knight1&quot;</span>, walk = <span class="hljs-string">&quot;knight_walk&quot;</span>, hp = <span class="hljs-number">3</span> },
+  attack = { btn = <span class="hljs-string">&quot;a&quot;</span>, spr = <span class="hljs-string">&quot;sword&quot;</span>, spr_v = <span class="hljs-string">&quot;swordv&quot;</span> },
+  enemies = { bat = { spr = <span class="hljs-string">&quot;bat_fly&quot;</span>, move = <span class="hljs-string">&quot;chase&quot;</span>, speed = <span class="hljs-number">0.8</span>, hp = <span class="hljs-number">1</span>, drop = <span class="hljs-string">&quot;heart&quot;</span> } },
+  pickups = { key = { spr = <span class="hljs-string">&quot;key&quot;</span>, toast = <span class="hljs-string">&quot;You found the key!&quot;</span> }, heart = { spr = <span class="hljs-string">&quot;heart&quot;</span>, heal = <span class="hljs-number">1</span> } },
+  doors = { door = { needs = <span class="hljs-string">&quot;key&quot;</span>, opens = <span class="hljs-string">&quot;dooropen&quot;</span> } },   <span class="hljs-comment">-- tile names</span>
+  win = <span class="hljs-string">&quot;flag:exit&quot;</span>,                                          <span class="hljs-comment">-- dooropen has flags=exit</span>
+  hud = { hearts = { <span class="hljs-string">&quot;heart&quot;</span>, <span class="hljs-string">&quot;heart0&quot;</span> }, show = { <span class="hljs-string">&quot;key&quot;</span> } },
+}
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">update</span><span class="hljs-params">()</span></span> td.update() <span class="hljs-keyword">end</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">draw</span><span class="hljs-params">()</span></span> td.draw() <span class="hljs-keyword">end</span></code></pre>
+<p>Things are placed with map markers in <code>assets.cw</code>, one kind per <code>@name</code>:</p>
+<pre><code class="hljs language-text">legend P @hero:floor  B @bat:floor  K @key:floor</code></pre>
+<p>Each marker kind must be a key of <code>enemies</code>, <code>pickups</code> or <code>npcs</code> (or <code>hero</code>).</p>
+<h3 id="config"><a class="anchor" href="#config" aria-hidden="true">#</a>Config</h3>
+<p>All fields are optional except <code>map</code>/<code>rooms</code> and <code>hero</code>.</p>
+<div class="table-wrap"><table><thead><tr><th>field</th><th>what</th></tr></thead><tbody><tr><td><code>map = &quot;name&quot;</code></td><td>one map (scrolls if bigger than the screen)</td></tr>
+<tr><td><code>rooms = {{&quot;a&quot;,&quot;b&quot;},{&quot;c&quot;,&quot;d&quot;}}</code></td><td>a grid of maps; walking off an edge enters the neighbour</td></tr>
+<tr><td><code>names = { a = &quot;KITCHEN&quot; }</code></td><td>room names for the HUD (default: the map name in capitals)</td></tr>
+<tr><td><code>hero = { spr=, hit=, walk=, up=, down=, walk_up=, walk_down=, left=, walk_left=, speed=1.5, hp=3, diag=true }</code></td><td>sprites face right and are flipped for left unless <code>left=</code> is given. <code>hit</code> defaults to the sprite&#39;s <code>hit=</code>, else a lower-body box that fits one-tile gaps</td></tr>
+<tr><td><code>attack = { btn=&quot;a&quot;, spr=, spr_v=, reach=14, time=12, damage=1 }</code></td><td>no attack if absent</td></tr>
+<tr><td><code>enemies = { bat = { spr=, hit=, hp=1, speed=1, move=&quot;still|bounce_x|bounce_y|wander|chase&quot;, range=80, damage=1, flying=false, drop=&quot;heart&quot; } }</code></td><td></td></tr>
+<tr><td><code>pickups = { key = { spr=, item=&quot;key&quot;, heal=0, score=0, goal=false, say=, toast= } }</code></td><td><code>goal = true</code> pickups count toward <code>win = &quot;collect&quot;</code></td></tr>
+<tr><td><code>npcs = { owl = { spr=, name=&quot;OWL&quot;, say = {&quot;line&quot;, &quot;line&quot;} or function(world) … end } }</code></td><td></td></tr>
+<tr><td><code>doors = { door = { needs=&quot;key&quot;, consume=true, opens=&quot;dooropen&quot;, locked=&quot;Locked.&quot; } }</code></td><td>tile names</td></tr>
+<tr><td><code>win = &quot;flag:exit&quot; | &quot;collect&quot; | &quot;collect:cookie&quot; | function(world)</code></td><td></td></tr>
+<tr><td><code>title=, intro=, win_text=&quot;YOU WIN!&quot;, lose_text=&quot;GAME OVER&quot;</code></td><td></td></tr>
+<tr><td><code>hud = { hearts = {&quot;heart&quot;, &quot;heart0&quot;}, show = {&quot;key&quot;, &quot;cookie&quot;} }</code> or <code>false</code></td><td></td></tr>
+<tr><td><code>sounds = { pickup=&quot;coin&quot;, hurt=&quot;hurt&quot;, … }</code> or <code>false</code></td><td>override the default sfx per event. Events: <code>start pickup goal key heal hurt swing hit defeat door locked talk win lose</code></td></tr>
+<tr><td><code>music = &quot;song&quot;</code> or <code>{ title=, play=, win=, lose=, rooms = { cellar = &quot;cave&quot; } }</code></td><td>songs from <code>assets.cw</code> or built in (<code>adventure cave village boss victory</code>)</td></tr>
+<tr><td><code>ui = { ink=&quot;k&quot;, paper=&quot;w&quot;, accent=&quot;y&quot; }</code></td><td>default: darkest / lightest of the first palette</td></tr>
+<tr><td><code>on = { start=, hurt=, defeat=, pickup=, room=, update=, draw=, hud= }</code></td><td>hooks; <code>draw</code> runs in world space after the actors</td></tr></tbody></table></div>
+<h3 id="rules-of-thumb"><a class="anchor" href="#rules-of-thumb" aria-hidden="true">#</a>Rules of thumb</h3>
+<ul>
+<li>Room maps are 20 × 15. The top 14 px are under the HUD, so make row 0 wall (or a copy of
+row 1 where a doorway leads up). Leave gaps in the outer wall where rooms connect.</li>
+<li>Give solid tiles <code>flags=solid</code>; a door tile <code>flags=solid,door</code>; its open version
+<code>flags=exit</code> if walking through it wins.</li>
+<li>Don&#39;t put an enemy within ~6 tiles of a room entrance or the start: playtest flags a hit
+within one second of arriving as unfair.</li>
+<li>Sprites face <strong>right</strong>; the kit flips them for left.</li>
+</ul>
+<h3 id="talking-to-the-kit"><a class="anchor" href="#talking-to-the-kit" aria-hidden="true">#</a>Talking to the kit</h3>
+<p><code>td.say(lines [, who])</code> dialogue · <code>td.toast(msg)</code> · <code>td.box(x, y, w, h)</code> framed panel ·
+<code>td.spawn(kind, x, y)</code> · <code>td.hurt(n)</code> · <code>td.win()</code> · <code>td.lose()</code> · <code>td.goals_left([kind])</code>.</p>
+<p>Everything the kit knows lives in the global <code>world</code>: <code>world.hero</code>, <code>world.enemies</code>,
+<code>world.pickups</code>, <code>world.npcs</code> (current room), <code>world.room</code>, <code>world.state</code>
+(<code>title | play | win | over | pause</code>), <code>world.items</code> (inventory counts), <code>world.talk</code>. Bots,
+<code>playtest</code>, <code>--watch</code> and your own code all read it.</p>
+<p>The kit logs <code>state &lt;s&gt;</code>, <code>room &lt;name&gt;</code>, <code>got &lt;kind&gt;</code>, <code>hurt hp=&lt;n&gt;</code>, <code>defeated &lt;kind&gt;</code>,
+<code>door open</code>, <code>locked</code>, <code>talk &lt;npc&gt;</code>, <code>WIN</code>, <code>LOSE</code> — which is exactly what the playtest reads.</p>
+<h3 id="a-kit-bot-plan"><a class="anchor" href="#a-kit-bot-plan" aria-hidden="true">#</a>A kit bot plan</h3>
+<pre><code class="hljs language-text">hero world.hero
+avoid world.enemies 20          # or: fight world.enemies a 30  (if the hero has an attack)
+abort world.state == &quot;over&quot;
+tap a
+wait until world.state == &quot;play&quot;
+collect world.pickups           # everything in this room
+goto tile 19,7                  # walk to the east doorway…
+hold right 16                   # …and through it
+wait until world.room == &quot;pantry&quot;</code></pre>
+<h3 id="source"><a class="anchor" href="#source" aria-hidden="true">#</a>Source</h3>
+<p>The kit is <code>core/kits/topdown.lua</code>, about 750 lines of Lua compiled into the console with
+<code>include_str!</code>. <code>kartu docs kit_source</code> prints it. Reading it is the best way to learn the
+console API, and changing it is the best way to start contributing.</p>
+<h2 id="writing-a-kit"><a class="anchor" href="#writing-a-kit" aria-hidden="true">#</a>Writing a kit</h2>
+<p>A kit is a Lua file that returns a table; the console loads it with <code>kit(name)</code>. Conventions
+that make a kit useful to agents:</p>
+<ul>
+<li><strong>One config table</strong> (<code>setup{}</code>) with sensible defaults for everything, so a tiny game is a
+tiny file.</li>
+<li><strong>Log what happens</strong> in plain words, and always <code>WIN</code> / <code>LOSE</code>.</li>
+<li><strong>Put state in one readable global</strong> (<code>world</code>) so bots and <code>--watch</code> can see it.</li>
+<li><strong>Fair by default</strong>: hit boxes that fit through one-tile gaps, a grace period on entering a room.</li>
+</ul>
+<p>Open an issue before starting a big one — we&#39;d love to help shape it.</p>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/docs/kits.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

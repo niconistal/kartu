@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started · Kartu</title>
+<meta name="description" content="curl -fsSL https://raw.githubusercontent.com/niconistal/kartu/main/install.sh | sh">
+<meta property="og:title" content="Getting started · Kartu">
+<meta property="og:description" content="curl -fsSL https://raw.githubusercontent.com/niconistal/kartu/main/install.sh | sh">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/getting-started.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html" class="on" aria-current="page">Getting started</a></li><li><a href="making-a-game.html">Making a game</a></li><li><a href="cart-format.html">Cart format</a></li><li><a href="kits.html">Kits</a></li><li><a href="sound.html">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html">The runner</a></li><li><a href="ai-tools.html">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html">The console</a></li><li><a href="handhelds.html">Handhelds</a></li><li><a href="building.html">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="getting-started"><a class="anchor" href="#getting-started" aria-hidden="true">#</a>Getting started</h1>
+<h2 id="install"><a class="anchor" href="#install" aria-hidden="true">#</a>Install</h2>
+<p><strong>Linux x86_64</strong> (prebuilt):</p>
+<pre><code class="hljs language-sh">curl -fsSL https://raw.githubusercontent.com/niconistal/kartu/main/install.sh | sh</code></pre>
+<p>The installer puts <code>kartu</code> and <code>kartu-mcp</code> in <code>~/.local/bin</code>, and the shipped defaults (the
+browser player, the starter library) in <code>~/.local/share/kartu</code>. Re-run it to update. It never
+touches your settings in <code>~/.config/kartu/config.toml</code>. If Claude Code is on your PATH it also
+runs <code>kartu setup</code> (see <a href="ai-tools.html">AI tools</a>).</p>
+<p><strong>Everywhere else</strong> (macOS, Windows, ARM Linux), build from source with Rust 1.85 or newer:</p>
+<pre><code class="hljs language-sh">cargo install --git https://github.com/niconistal/kartu kartu kartu-maker</code></pre>
+<p>This gives you the runner and the maker commands. The browser player (<code>kartu web</code>) needs the
+WebAssembly build in <code>~/.local/share/kartu/web</code>; until there are prebuilt packages for your
+platform, either copy <code>dist/web</code> from a Linux install or <a href="building.html">build it</a>.</p>
+<p>Check the install:</p>
+<pre><code class="hljs">$ kartu doctor</code></pre>
+<h2 id="your-first-cart"><a class="anchor" href="#your-first-cart" aria-hidden="true">#</a>Your first cart</h2>
+<pre><code class="hljs language-sh">kartu new hello --template blank
+<span class="hljs-built_in">cd</span> hello</code></pre>
+<p>A cart is a folder with two text files. <code>assets.cw</code> holds the art:</p>
+<pre><code class="hljs language-text">palette p
+  . clear
+  w #f4f4f4
+  y #ffcd75
+sprite star 8x8 pal=p
+...yy...
+...yy...
+yyyyyyyy
+.yyyyyy.
+..yyyy..
+.yy..yy.
+yy....yy
+........</code></pre>
+<p>and <code>main.lua</code> holds the game. Three functions run it: <code>init</code> once, then <code>update</code> and <code>draw</code>
+every frame, sixty times a second.</p>
+<pre><code class="hljs language-lua">x = <span class="hljs-number">156</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">update</span><span class="hljs-params">()</span></span>
+  <span class="hljs-keyword">if</span> btn(<span class="hljs-string">&quot;left&quot;</span>)  <span class="hljs-keyword">then</span> x = x - <span class="hljs-number">2</span> <span class="hljs-keyword">end</span>
+  <span class="hljs-keyword">if</span> btn(<span class="hljs-string">&quot;right&quot;</span>) <span class="hljs-keyword">then</span> x = x + <span class="hljs-number">2</span> <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+<span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">draw</span><span class="hljs-params">()</span></span>
+  text(<span class="hljs-string">&quot;HELLO, KARTU&quot;</span>, <span class="hljs-number">112</span>, <span class="hljs-number">40</span>, <span class="hljs-string">&quot;w&quot;</span>)
+  spr(<span class="hljs-string">&quot;star&quot;</span>, x, <span class="hljs-number">116</span>)
+<span class="hljs-keyword">end</span></code></pre>
+<p>Then:</p>
+<pre><code class="hljs language-sh">kartu check .        <span class="hljs-comment"># every problem at once: art, Lua syntax, unknown names, a smoke run</span>
+kartu web .          <span class="hljs-comment"># play it in the browser (http://localhost:7070, or the next free port) — reload after edits</span></code></pre>
+<p>Keyboard in the web player: arrows move, <strong>Z</strong> = A, <strong>X</strong> = B, <strong>A</strong> = Y, <strong>S</strong> = X, <strong>Q/W</strong> = L/R,
+Enter = Start, Shift = Select.</p>
+<p>The default template is <code>topdown</code>: a small, working, winnable game built on the
+<a href="kits.html">top-down kit</a>, which is the better starting point for an adventure or a collect-a-thon.</p>
+<h2 id="the-commands"><a class="anchor" href="#the-commands" aria-hidden="true">#</a>The commands</h2>
+<div class="table-wrap"><table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><code>kartu new &lt;folder&gt;</code></td><td>a working starter cart + <code>AGENTS.md</code> + <code>.mcp.json</code> (<code>--title T</code>, `--template topdown</td></tr>
+<tr><td><code>kartu check &lt;cart&gt;</code></td><td>every problem at once: art, Lua syntax, unknown names, a smoke run. Exit 1 on any error</td></tr>
+<tr><td><code>kartu run &lt;cart&gt; …</code></td><td>play headless: log lines, watched values, screenshots, bots, saves</td></tr>
+<tr><td><code>kartu playtest &lt;cart&gt;</code></td><td>the goal bot plays <code>bot.txt</code> on seeds 1–3; PASS = provably winnable and fair</td></tr>
+<tr><td><code>kartu web &lt;cart&gt;</code></td><td>the browser player on localhost (<code>--port N</code>)</td></tr>
+<tr><td><code>kartu play &lt;cart&gt;</code></td><td>the Linux framebuffer player (handhelds)</td></tr>
+<tr><td><code>kartu sound &lt;cart&gt;</code></td><td>render one song or effect to WAV, or list what the cart can play</td></tr>
+<tr><td><code>kartu art import pic.png --name x</code></td><td>any PNG → palette + sprites (bring your own image generator)</td></tr>
+<tr><td><code>kartu docs [topic]</code></td><td>the API reference, by topic</td></tr>
+<tr><td><code>kartu mcp</code></td><td>the maker tools as an MCP server</td></tr>
+<tr><td><code>kartu setup</code> / <code>doctor</code> / <code>config</code></td><td>connect Claude Code · check the install · show your settings</td></tr>
+<tr><td><code>kartu help</code></td><td>all of the above with every flag</td></tr></tbody></table></div>
+<p>The runner&#39;s flags are explained in <a href="runner.html">The runner</a>.</p>
+<h2 id="where-things-live"><a class="anchor" href="#where-things-live" aria-hidden="true">#</a>Where things live</h2>
+<div class="table-wrap"><table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><code>~/.local/share/kartu/</code></td><td>shipped defaults: the web player, the starter library. Replaced on every install — don&#39;t edit</td></tr>
+<tr><td><code>~/.config/kartu/config.toml</code></td><td>yours; never touched by updates (below)</td></tr>
+<tr><td><code>&lt;cart&gt;/kartu.toml</code></td><td>the game&#39;s title and format version; travels with the cart</td></tr>
+<tr><td><code>&lt;cart&gt;/.cw/</code></td><td>the runner&#39;s scratch space for that cart (screenshots, playtest output). Safe to delete, ignored by git</td></tr></tbody></table></div>
+<p><code>config.toml</code> is optional:</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">library</span> = [<span class="hljs-string">&quot;~/kartu-art&quot;</span>]         <span class="hljs-comment"># more carts or packs whose art the AI can search and copy</span>
+<span class="hljs-attr">judge</span> = <span class="hljs-string">&quot;~/bin/my-judge&quot;</span>          <span class="hljs-comment"># optional: an opinion on playtests (see AI tools → the judge hook)</span>
+<span class="hljs-section">[device.miyoo]</span>
+<span class="hljs-attr">ip</span> = <span class="hljs-string">&quot;192.168.1.50&quot;</span>               <span class="hljs-comment"># scripts/deliver-miyoo.sh</span></code></pre>
+<p><code>KARTU_CONFIG</code> overrides the path; <code>XDG_CONFIG_HOME</code> and <code>XDG_DATA_HOME</code> are respected.</p>
+<h2 id="next"><a class="anchor" href="#next" aria-hidden="true">#</a>Next</h2>
+<ul>
+<li><a href="making-a-game.html">Making a game</a> — the loop that makes carts good, with an AI or by hand</li>
+<li><a href="cart-format.html">Cart format</a> — everything <code>assets.cw</code> can say</li>
+<li><a href="api.html">API.md</a> — the reference</li>
+</ul>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/docs/getting-started.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

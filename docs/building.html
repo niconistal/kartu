@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Building · Kartu</title>
+<meta name="description" content="Rust 1.85 or newer. The only C is Lua, which mlua builds for you.">
+<meta property="og:title" content="Building · Kartu">
+<meta property="og:description" content="Rust 1.85 or newer. The only C is Lua, which mlua builds for you.">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/building.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="making-a-game.html">Making a game</a></li><li><a href="cart-format.html">Cart format</a></li><li><a href="kits.html">Kits</a></li><li><a href="sound.html">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html">The runner</a></li><li><a href="ai-tools.html">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html">The console</a></li><li><a href="handhelds.html">Handhelds</a></li><li><a href="building.html" class="on" aria-current="page">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="building"><a class="anchor" href="#building" aria-hidden="true">#</a>Building</h1>
+<h2 id="native"><a class="anchor" href="#native" aria-hidden="true">#</a>Native</h2>
+<p>Rust 1.85 or newer. The only C is Lua, which <code>mlua</code> builds for you.</p>
+<pre><code class="hljs language-sh">cargo build --release              <span class="hljs-comment"># target/release/kartu, kartu-mcp</span>
+cargo <span class="hljs-built_in">test</span> -p kartu-core
+./target/release/kartu bench carts/bench
+scripts/verify-carts.sh            <span class="hljs-comment"># check + a proven win for every cart (what CI runs)</span></code></pre>
+<h2 id="the-web-player"><a class="anchor" href="#the-web-player" aria-hidden="true">#</a>The web player</h2>
+<p>The player is the same <code>kartu</code> binary compiled for <code>wasm32-unknown-emscripten</code>, plus
+<code>web/index.html</code>. You need <a href="https://emscripten.org/">emsdk</a> (the scripts expect it at
+<code>/opt/emsdk</code>; edit the path at the top of <code>scripts/build-web.sh</code> if yours differs).</p>
+<pre><code class="hljs language-sh">scripts/build-web.sh          <span class="hljs-comment"># dist/web/ (kartu.js + kartu.wasm + index.html + carts/)</span>
+                              <span class="hljs-comment"># and dist/kartu-player.html (one self-contained file to share or embed)</span>
+scripts/sync-web-carts.sh     <span class="hljs-comment"># re-bundle carts only (no wasm rebuild)</span></code></pre>
+<p><code>bundle_web.py</code> computes the native reference hash with the x86 runner, so the page&#39;s
+<strong>Verify</strong> button checks the browser against a real native run rather than a number typed in
+by hand. Carts in <code>dist/web/carts/</code> come from <code>scripts/cart-dirs.sh</code>: <code>carts/*</code> first, then
+any carts in your config&#39;s <code>library</code> dirs.</p>
+<p><code>kartu web &lt;cart&gt;</code> serves the player from <code>~/.local/share/kartu/web</code> with that cart.</p>
+<h2 id="handheld"><a class="anchor" href="#handheld" aria-hidden="true">#</a>Handheld</h2>
+<p>zig 0.16 + <code>cargo-zigbuild</code> as the static cross-linker; <code>qemu-arm</code> to run the result locally.</p>
+<pre><code class="hljs language-sh">scripts/build-miyoo.sh        <span class="hljs-comment"># dist/miyoo/Kartu/ (an Onion OS App folder)</span>
+scripts/deliver-miyoo.sh      <span class="hljs-comment"># install over ssh (DEVICE_IP or [device.miyoo] ip in config)</span></code></pre>
+<p>See <a href="handhelds.html">Handhelds</a>.</p>
+<h2 id="packaging-a-release"><a class="anchor" href="#packaging-a-release" aria-hidden="true">#</a>Packaging a release</h2>
+<pre><code class="hljs language-sh">scripts/package.sh            <span class="hljs-comment"># dist/pkg/kartu-linux-x86_64.tar.gz (static musl) for install.sh</span>
+gh release create vX.Y.Z dist/pkg/*.tar.gz</code></pre>
+<p>Bump the versions in the three <code>Cargo.toml</code> files and <code>core/CHANGELOG.md</code> first. <code>install.sh</code>
+fetches <code>releases/latest</code>.</p>
+<h2 id="gotchas-we-hit-so-you-don39t-have-to"><a class="anchor" href="#gotchas-we-hit-so-you-don39t-have-to" aria-hidden="true">#</a>Gotchas we hit so you don&#39;t have to</h2>
+<ul>
+<li><strong>emscripten + mlua:</strong> Lua is compiled <strong>as C++</strong> (errors are exceptions). Rust links with
+<code>-fwasm-exceptions</code>, so Lua must too (<code>CXXFLAGS_wasm32_unknown_emscripten</code>), plus
+<code>-lc++ -lc++abi</code>. After changing those flags, <code>cargo clean -p mlua-sys --target …</code>: its build
+script caches.</li>
+<li><strong>Single-file player:</strong> needs <code>-sINCOMING_MODULE_JS_API=wasmBinary</code>, or emscripten ignores the
+inlined bytes and tries to fetch <code>kartu.wasm</code>.</li>
+<li><strong>fbdev:</strong> with two pages, <code>FBIOPAN_DISPLAY</code> is the flip; <code>FBIO_WAITFORVSYNC</code> on top halves
+the frame rate, so it&#39;s only used single-buffered (<code>CW_VSYNC=1</code> forces it).</li>
+<li><strong>fbdev without a screen:</strong> <code>modprobe vfb vfb_enable=1 videomemorysize=4000000</code>,
+<code>fbset -depth 32 -vyres 960</code>; fbcon grabs it, so <code>echo 0 &gt; /sys/class/vtconsole/vtcon1/bind</code>
+before <code>rmmod vfb</code>.</li>
+<li><strong>Determinism:</strong> never use <code>f32::sin</code> or the like in the core; use the console&#39;s own
+polynomials. <code>verify-carts.sh</code> compares frame hashes, so a non-deterministic change shows up
+as a failing replay.</li>
+</ul>
+<h2 id="the-website"><a class="anchor" href="#the-website" aria-hidden="true">#</a>The website</h2>
+<p><code>site/</code> holds the landing page and the docs renderer (Node, <code>marked</code> + <code>highlight.js</code>).
+<code>scripts/build-site.sh</code> renders <code>docs/*.md</code> and <code>API.md</code>, copies the web player from <code>dist/web</code>
+into <code>play/</code>, and writes <code>dist/site/</code>. <code>scripts/deploy-site.sh</code> pushes that folder to the
+<code>gh-pages</code> branch, which GitHub Pages serves at <a href="https://niconistal.github.io/kartu/">https://niconistal.github.io/kartu/</a>.</p>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/docs/building.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

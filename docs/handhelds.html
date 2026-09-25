@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handhelds · Kartu</title>
+<meta name="description" content="Kartu was designed around a real target: the Miyoo Mini (640 × 480, so 320 × 240 is an">
+<meta property="og:title" content="Handhelds · Kartu">
+<meta property="og:description" content="Kartu was designed around a real target: the Miyoo Mini (640 × 480, so 320 × 240 is an">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/handhelds.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="making-a-game.html">Making a game</a></li><li><a href="cart-format.html">Cart format</a></li><li><a href="kits.html">Kits</a></li><li><a href="sound.html">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html">The runner</a></li><li><a href="ai-tools.html">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html">The console</a></li><li><a href="handhelds.html" class="on" aria-current="page">Handhelds</a></li><li><a href="building.html">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="handhelds"><a class="anchor" href="#handhelds" aria-hidden="true">#</a>Handhelds</h1>
+<p>Kartu was designed around a real target: the <strong>Miyoo Mini</strong> (640 × 480, so 320 × 240 is an
+exact ×2) running <a href="https://onionui.github.io/">Onion OS</a>. The same framebuffer player runs on
+any Linux with <code>/dev/fb0</code> and evdev input; other handhelds (Anbernic, Trimui, …) are ports
+waiting to happen.</p>
+<h2 id="the-framebuffer-player"><a class="anchor" href="#the-framebuffer-player" aria-hidden="true">#</a>The framebuffer player</h2>
+<pre><code class="hljs language-sh">kartu play &lt;cart&gt; [--record FILE] [--audio DEV] [--mute] [--pick-out FILE]</code></pre>
+<ul>
+<li>Draws through <code>/dev/fb0</code>. With two pages, <code>FBIOPAN_DISPLAY</code> is the flip; <code>FBIO_WAITFORVSYNC</code> on
+top would halve the frame rate, so it is only used single-buffered (<code>CW_VSYNC=1</code> forces it).</li>
+<li>Reads gamepads and keyboards through evdev.</li>
+<li>Sound goes to OSS <code>/dev/dsp</code> at 24 kHz mono (<code>--audio DEV</code>, <code>--mute</code>).</li>
+<li><code>CW_ROTATE=0|180</code> overrides the panel orientation (the Miyoo&#39;s panel is mounted 180°).</li>
+<li>In game: <strong>L2</strong> shows a performance HUD, <strong>R2</strong> flips the picture, <strong>MENU</strong> exits.</li>
+<li><code>--record FILE</code> saves your input as a replay script, as the web player&#39;s Record button does.</li>
+</ul>
+<p>The Miyoo Mini runs it at a steady 60 fps: the console step is ~1.7 ms and the rest is the
+framebuffer copy and rotate.</p>
+<h2 id="miyoo-mini-onion-os"><a class="anchor" href="#miyoo-mini-onion-os" aria-hidden="true">#</a>Miyoo Mini / Onion OS</h2>
+<p><code>scripts/build-miyoo.sh</code> builds a static ARMv7 binary (zig as the cross-linker) and assembles
+<code>dist/miyoo/Kartu/</code>, an Onion <strong>App</strong> folder with the player, every cart and a menu.
+<code>scripts/deliver-miyoo.sh</code> copies it to the device over ssh (<code>DEVICE_IP=…</code> or <code>[device.miyoo]</code>
+in your config) and can run a benchmark when the device is idle.</p>
+<pre><code class="hljs language-sh">scripts/build-miyoo.sh &amp;&amp; DEVICE_IP=192.168.1.50 scripts/deliver-miyoo.sh</code></pre>
+<p>What lands on the SD card:</p>
+<ul>
+<li><strong>Apps → Kartu</strong> (<code>/mnt/SDCARD/App/Kartu</code>): a menu of every cart (<code>miyoo/menu</code>, a Kartu cart
+itself; its list is generated from each cart&#39;s <code>-- title:</code> line). <strong>A</strong> plays, <strong>MENU</strong> in a
+game returns to the menu, <strong>MENU</strong> in the menu quits. The menu logs <code>PICK dir</code> and
+<code>kartu play --pick-out F</code> hands the choice to <code>launch.sh</code>.</li>
+<li><strong>Games → KARTU</strong>: a Kartu console in the Games tab (<code>Emu/KARTU</code> from <code>miyoo/emu</code>) with one
+<code>Roms/KARTU/&lt;Title&gt;.kartu</code> pointer file per cart (its content is the cart folder), so each
+cart lists like a game with recents and favourites. MainUI needs a restart to list a new
+console.</li>
+</ul>
+<h3 id="sound-on-the-miyoo"><a class="anchor" href="#sound-on-the-miyoo" aria-hidden="true">#</a>Sound on the Miyoo</h3>
+<p><code>kartu</code> is static, so Onion&#39;s <code>libpadsp.so</code> preload can&#39;t route it through <code>audioserver</code>;
+<code>launch.sh</code> runs Onion&#39;s <code>stop_audioserver.sh</code> (keeping the volume), the player writes 24 kHz
+mono straight to <code>/dev/dsp</code> (the SigmaStar driver takes it as is), and Onion restarts
+<code>audioserver</code> before MainUI. The driver returns its own error codes (<code>0xA005xxxx</code>) from
+<code>write()</code>, hence raw <code>libc::write</code> and an error counter in the exit report;
+<code>KARTU_OSS_DEBUG=N</code> logs the first N writes. <code>kartu.log</code> on the device shows the audio line
+and dropped/error counts.</p>
+<h2 id="testing-the-framebuffer-player-without-a-device"><a class="anchor" href="#testing-the-framebuffer-player-without-a-device" aria-hidden="true">#</a>Testing the framebuffer player without a device</h2>
+<pre><code class="hljs language-sh">modprobe vfb vfb_enable=1 videomemorysize=4000000
+fbset -depth 32 -vyres 960
+<span class="hljs-built_in">echo</span> 0 &gt; /sys/class/vtconsole/vtcon1/bind    <span class="hljs-comment"># fbcon grabs it; unbind before rmmod vfb</span>
+kartu play carts/crypt</code></pre>
+<p><code>qemu-arm</code> runs the ARM binary on an x86 box for a quick check that a build works.</p>
+<h2 id="porting-to-another-handheld"><a class="anchor" href="#porting-to-another-handheld" aria-hidden="true">#</a>Porting to another handheld</h2>
+<p>Most Linux-based retro handhelds need three things: the right cross target (<code>armv7</code> or
+<code>aarch64</code> musl), the framebuffer format (<code>fbdev.rs</code> handles 16- and 32-bit), and where the OS
+expects apps to live (the Onion app folder is in <code>miyoo/</code>; other firmwares have their own).
+Open an issue with the device name and we&#39;ll help — a port is a very welcome first contribution.</p>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/docs/handhelds.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

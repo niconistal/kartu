@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview · Kartu</title>
+<meta name="description" content="These guides explain the console and its tools. The terse, complete reference is">
+<meta property="og:title" content="Overview · Kartu">
+<meta property="og:description" content="These guides explain the console and its tools. The terse, complete reference is">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/index.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html" class="on" aria-current="page">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="making-a-game.html">Making a game</a></li><li><a href="cart-format.html">Cart format</a></li><li><a href="kits.html">Kits</a></li><li><a href="sound.html">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html">The runner</a></li><li><a href="ai-tools.html">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html">The console</a></li><li><a href="handhelds.html">Handhelds</a></li><li><a href="building.html">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="kartu-documentation"><a class="anchor" href="#kartu-documentation" aria-hidden="true">#</a>Kartu documentation</h1>
+<p>These guides explain the console and its tools. The terse, complete reference is
+<a href="api.html">API.md</a> — the same text <code>kartu docs</code> prints and the MCP <code>docs</code> tool serves.
+The rendered version of everything here lives at <a href="https://niconistal.github.io/kartu/">https://niconistal.github.io/kartu/</a>.</p>
+<h2 id="start-here"><a class="anchor" href="#start-here" aria-hidden="true">#</a>Start here</h2>
+<div class="table-wrap"><table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><a href="getting-started.html">Getting started</a></td><td>install, your first cart, the commands, where things live</td></tr>
+<tr><td><a href="making-a-game.html">Making a game</a></td><td>the workflow — with an AI or by hand: check, look, bot, playtest</td></tr>
+<tr><td><a href="cart-format.html">Cart format</a></td><td><code>assets.cw</code>: palettes, sprites, clips, tiles, maps, legends, markers, importing art</td></tr>
+<tr><td><a href="kits.html">Kits</a></td><td>the top-down kit: a whole game from one table</td></tr>
+<tr><td><a href="sound.html">Sound</a></td><td>the synth, built-in presets, instruments, sound effects and MML songs</td></tr></tbody></table></div>
+<h2 id="tools"><a class="anchor" href="#tools" aria-hidden="true">#</a>Tools</h2>
+<div class="table-wrap"><table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><a href="runner.html">The runner</a></td><td><code>check</code>, <code>run</code>, input scripts, screenshots, watches and dumps, saves, goal bots, <code>playtest</code></td></tr>
+<tr><td><a href="ai-tools.html">AI tools</a></td><td><code>AGENTS.md</code>, the MCP server and its tools, <code>kartu setup</code>, config, the judge hook</td></tr></tbody></table></div>
+<h2 id="under-the-hood"><a class="anchor" href="#under-the-hood" aria-hidden="true">#</a>Under the hood</h2>
+<div class="table-wrap"><table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><a href="console.html">The console</a></td><td>architecture, the crates, embedding <code>kartu-core</code>, determinism and the sandbox</td></tr>
+<tr><td><a href="handhelds.html">Handhelds</a></td><td>the Miyoo Mini / Onion OS app and Games-tab console, the framebuffer player</td></tr>
+<tr><td><a href="building.html">Building</a></td><td>toolchains, the web player, packaging, the regression script, gotchas</td></tr></tbody></table></div>
+<h2 id="contributing"><a class="anchor" href="#contributing" aria-hidden="true">#</a>Contributing</h2>
+<p><a href="https://github.com/niconistal/kartu/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> · <a href="https://github.com/niconistal/kartu/blob/main/CODE_OF_CONDUCT.md">Code of conduct</a> ·
+<a href="https://github.com/niconistal/kartu/issues">Issues</a></p>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/docs/README.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

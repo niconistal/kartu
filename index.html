@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kartu · a fantasy console designed to be programmed by AI</title>
+<meta name="description" content="Kartu is an open-source 16-bit fantasy console: 320×240, Lua 5.4, text-native art and sound, deterministic, with a headless runner and bots that prove a game can be won. Runs in the browser, on the desktop and on retro handhelds.">
+<meta property="og:title" content="Kartu · a fantasy console designed to be programmed by AI">
+<meta property="og:description" content="Small, deterministic, text-native. Describe a game; an agent builds it, plays it, and proves it can be won. MIT-licensed core.">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="docs/index.html">Docs</a>
+    <a href="docs/api.html">API</a>
+    <a href="play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <p class="kicker">OPEN-SOURCE FANTASY CONSOLE · v0.1</p>
+      <h1>A 16-bit fantasy console designed to be programmed by <em>AI</em> — and by you.</h1>
+      <p class="lede">Small, deterministic, text-native. Describe a game; an agent builds it, looks at it, and proves it can be won. Then play it in the browser or on a retro handheld.</p>
+      <div class="cta">
+        <a class="btn primary" href="docs/getting-started.html">Get started</a>
+        <a class="btn" href="play/">▶ Play the carts</a>
+        <a class="btn" href="https://github.com/niconistal/kartu">GitHub</a>
+      </div>
+      <div class="install"><span class="prompt">$</span><code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/niconistal/kartu/main/install.sh | sh</code><button id="copy" title="Copy">Copy</button></div>
+      <ul class="facts">
+        <li>320×240 · 60 fps</li><li>Lua 5.4 sandbox</li><li>text-native assets</li><li>8-voice synth</li><li>web · desktop · Miyoo Mini</li><li>MIT core</li>
+      </ul>
+    </div>
+    <div class="art"><img src="docs/images/hero.jpg" alt="A card-shaped cartridge sliding into a small fantasy console above a tiny pixel-art world with a frog, a knight and a bakery cat" width="1280" height="720"></div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <h2>The starter carts</h2>
+    <p class="sub">Straight from the runner, no touch-ups. Click one to play it in your browser — arrows move, Z is A, X is B.</p>
+    <div class="gallery">
+      <a href="play/#cart=froggy"><img src="docs/images/froggy.png" alt="Froggy: a frog crossing a road and a river" width="640" height="480"><span>FROGGY</span></a>
+      <a href="play/#cart=dungeon"><img src="docs/images/dungeon.png" alt="Dungeon: a knight in a blue-brick vault with bats and a key" width="640" height="480"><span>DUNGEON</span></a>
+      <a href="play/#cart=bakehouse"><img src="docs/images/bakehouse.png" alt="Bakehouse: a cat collecting cookies in a haunted pantry" width="640" height="480"><span>BAKEHOUSE</span></a>
+      <a href="play/#cart=keyquest"><img src="docs/images/keyquest.png" alt="Key Quest: a maze of white brick walls" width="640" height="480"><span>KEY QUEST</span></a>
+      <a href="play/#cart=crypt"><img src="docs/images/crypt.png" alt="Crypt: a knight explores a crypt" width="640" height="480"><span>CRYPT</span></a>
+      <a href="play/#cart=shanty"><img src="docs/images/shanty.png" alt="Pirate Treasure: a sandy island with chests" width="640" height="480"><span>PIRATE TREASURE</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="band alt">
+  <div class="wrap">
+    <h2>Why another fantasy console?</h2>
+    <p class="sub">PICO-8 proved that a small, opinionated machine is a wonderful place to make games. Its constraints were chosen for people who enjoy them. Kartu keeps the idea and changes the constraints to ones a language model can read and test against.</p>
+    <div class="cols">
+      <div class="card"><div class="ico">▦</div><h3>Text-native</h3><p>Sprites are grids of palette characters. Maps are pictures made of legend characters, with <code>@</code> markers for the hero, enemies and pickups. Songs are notation. Everything is readable, diffable and patchable — by an editor, a model or <code>git</code>.</p></div>
+      <div class="card"><div class="ico">≡</div><h3>Deterministic</h3><p>Seeded random, no clock, polynomial trig, palette indices in the framebuffer. Same seed + same inputs give bit-identical frames <em>and audio</em> on x86, ARM and WebAssembly. Replays, saves and bots stand on this.</p></div>
+      <div class="card"><div class="ico">▶</div><h3>Testable</h3><p>A headless runner prints what the game logs, saves screenshots, dumps state as JSON and replays inputs. Goal bots path-find over the live map. <code>kartu playtest</code> refuses to pass a game that can't be won or that hits the player unfairly.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <h2>A cart is two text files</h2>
+    <p class="sub">Here is a whole one. <code>init</code> runs once, <code>update</code> and <code>draw</code> run sixty times a second. Limits are on runtime — instructions per frame, memory — never on source size, so nobody has to golf.</p>
+    <div class="two">
+      <div><h4>assets.cw</h4><pre><code><span class="hljs-keyword">palette</span> p
+  . clear
+  w #f4f4f4
+  y #ffcd75
+<span class="hljs-keyword">sprite</span> star 8x8 pal=p
+...yy...
+...yy...
+yyyyyyyy
+.yyyyyy.
+..yyyy..
+.yy..yy.
+yy....yy
+........</code></pre></div>
+      <div><h4>main.lua</h4><pre><code>x = <span class="hljs-number">156</span>
+<span class="hljs-keyword">function</span> <span class="hljs-title">update</span>()
+  <span class="hljs-keyword">if</span> btn(<span class="hljs-string">"left"</span>)  <span class="hljs-keyword">then</span> x = x - <span class="hljs-number">2</span> <span class="hljs-keyword">end</span>
+  <span class="hljs-keyword">if</span> btn(<span class="hljs-string">"right"</span>) <span class="hljs-keyword">then</span> x = x + <span class="hljs-number">2</span> <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">end</span>
+<span class="hljs-keyword">function</span> <span class="hljs-title">draw</span>()
+  text(<span class="hljs-string">"HELLO, KARTU"</span>, <span class="hljs-number">112</span>, <span class="hljs-number">40</span>, <span class="hljs-string">"w"</span>)
+  spr(<span class="hljs-string">"star"</span>, x, <span class="hljs-number">116</span>)
+<span class="hljs-keyword">end</span></code></pre></div>
+    </div>
+    <p class="sub" style="margin-top:28px">And a whole <em>game</em>, with the built-in top-down kit: rooms, a hero, enemies, pickups, a locked door, HUD, title and win screens, music. This is the entire <code>main.lua</code> of the Dungeon cart above.</p>
+    <pre><code><span class="hljs-keyword">local</span> td = kit(<span class="hljs-string">"topdown"</span>)
+td.setup {
+  title = <span class="hljs-string">"DUNGEON"</span>, intro = <span class="hljs-string">"The key is somewhere east. Bring it back to the door in the hall."</span>,
+  rooms = { { <span class="hljs-string">"hall"</span>, <span class="hljs-string">"gallery"</span>, <span class="hljs-string">"vault"</span> } },
+  hero = { spr = <span class="hljs-string">"knight1"</span>, walk = <span class="hljs-string">"knight_walk"</span>, speed = <span class="hljs-number">1.5</span>, hp = <span class="hljs-number">3</span> },
+  attack = { btn = <span class="hljs-string">"a"</span>, spr = <span class="hljs-string">"sword"</span>, spr_v = <span class="hljs-string">"swordv"</span> },
+  enemies = { bat = { spr = <span class="hljs-string">"bat_fly"</span>, move = <span class="hljs-string">"chase"</span>, speed = <span class="hljs-number">0.8</span>, hp = <span class="hljs-number">1</span>, drop = <span class="hljs-string">"heart"</span> } },
+  pickups = { key = { spr = <span class="hljs-string">"key"</span>, toast = <span class="hljs-string">"You found the key!"</span> }, heart = { spr = <span class="hljs-string">"heart"</span>, heal = <span class="hljs-number">1</span> } },
+  doors = { door = { needs = <span class="hljs-string">"key"</span>, opens = <span class="hljs-string">"dooropen"</span>, locked = <span class="hljs-string">"Locked! Find the key."</span> } },
+  win = <span class="hljs-string">"flag:exit"</span>,
+  hud = { hearts = { <span class="hljs-string">"heart"</span>, <span class="hljs-string">"heart0"</span> }, show = { <span class="hljs-string">"key"</span> } },
+  music = { title = <span class="hljs-string">"adventure"</span>, play = <span class="hljs-string">"cave"</span>, win = <span class="hljs-string">"victory"</span> },
+}
+<span class="hljs-keyword">function</span> <span class="hljs-title">update</span>() td.update() <span class="hljs-keyword">end</span>
+<span class="hljs-keyword">function</span> <span class="hljs-title">draw</span>() td.draw() <span class="hljs-keyword">end</span></code></pre>
+  </div>
+</section>
+
+<section class="band alt">
+  <div class="wrap split">
+    <div>
+      <h2>Prove it can be won</h2>
+      <p class="sub">Every cart carries a <code>bot.txt</code>: a plan in plain words. The goal bot reads the live tile map, path-finds and presses the buttons frame by frame. The playtest runs it on three seeds and reports unfair hits, softlocks and win times. Because the console is deterministic, the verdict is the same on your laptop, in the browser and on a handheld.</p>
+      <pre><code><span class="cmt"># dungeon/bot.txt</span>
+hero world.hero
+fight world.enemies a 30
+tap a
+wait until world.state == "play"
+goto tile 19,8
+hold right 16
+wait until world.room == "gallery"
+…
+goto flag door
+goto flag exit</code></pre>
+    </div>
+    <div>
+      <pre><code><span class="prompt">$</span> kartu playtest carts/dungeon
+<span class="out">playtest PASS: the bot won on every seed, no unfair hits</span>
+seed 1: WON at f1409 (23.5 s)
+seed 2: WON at f1426 (23.8 s)
+seed 3: WON at f1412 (23.5 s)
+
+<span class="prompt">$</span> kartu check carts/crypt
+carts/crypt: 2 palettes, 9 sprites, 3 clips, 5 tiles, 1 maps
+<span class="out">check: 0 error(s), 0 warning(s), ran 120 frames clean</span>
+
+<span class="prompt">$</span> kartu run carts/dungeon --bot bot.txt --until WIN
+[log f0] room THE HALL
+[bot f152] goto tile 19,8: reached (150 frames)
+[log f158] room THE GALLERY
+[log f179] defeated bat
+[log f698] got key
+…
+[log f1408] door open
+<span class="out">[log f1409] WIN</span></code></pre>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap split">
+    <img src="docs/images/agent.jpg" alt="A small robot at a desk; a pixel-art world grows out of its monitor like a pop-up book" width="800" height="800">
+    <div>
+      <h2>Works with any AI</h2>
+      <p class="sub">Kartu meets agents at three levels. The lowest one is never broken.</p>
+      <ol class="steps">
+        <li><div><b>The command line</b><span><code>kartu check</code>, <code>run</code> and <code>playtest</code> print plain text with stable exit codes. Any agent with a shell can make games.</span></div></li>
+        <li><div><b>AGENTS.md in every cart</b><span><code>kartu new</code> writes the workflow into the folder: small steps, look at the screenshots, write the bot plan, playtest before saying "done". <code>CLAUDE.md</code> points at it.</span></div></li>
+        <li><div><b>MCP tools</b><span><code>kartu mcp</code> serves the same functions over the Model Context Protocol, with screenshots returned as images. <code>kartu setup</code> connects Claude Code.</span></div></li>
+      </ol>
+      <div class="cta"><a class="btn" href="docs/ai-tools.html">How the AI tools work →</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="band alt">
+  <div class="wrap split">
+    <div>
+      <h2>One core, every screen</h2>
+      <p class="sub"><code>kartu-core</code> is a Rust library with no window, no audio device and no files. A host hands in button bits, calls <code>step()</code> sixty times a second and shows the framebuffer. That is the whole contract — so the same console runs natively, in the browser through WebAssembly, and on the framebuffer of a Miyoo Mini at a steady 60 fps.</p>
+      <ul class="facts" style="margin-bottom:18px">
+        <li>4 tile layers · 128 sprites · 512-colour CRAM</li><li>8×8 text</li><li>8-voice synth, MML songs</li><li>12 buttons, nothing else</li>
+      </ul>
+      <div class="cta"><a class="btn" href="docs/console.html">Architecture →</a><a class="btn" href="docs/handhelds.html">Handhelds →</a></div>
+    </div>
+    <img src="docs/images/console.jpg" alt="An imaginary pastel handheld console with a dungeon game on its screen and a card-shaped cartridge beside it" width="1000" height="667">
+  </div>
+</section>
+
+<section class="invite">
+  <div class="wrap">
+    <p class="kicker">JOIN IN</p>
+    <h2>A console is only worth the games and tools people make for it.</h2>
+    <p>Kartu is v0.1: young, working, and still soft in places — the best time to shape one. Play the carts and tell us what's confusing, make a cart, point your agent at it and report where it stumbled, write a kit, port it to your handheld. Every part is open, and every part takes pull requests.</p>
+    <div class="cta" style="justify-content:center">
+      <a class="btn primary" href="https://github.com/niconistal/kartu/blob/main/CONTRIBUTING.md">Contributing guide</a>
+      <a class="btn" href="https://github.com/niconistal/kartu/issues/new/choose">Open an issue</a>
+      <a class="btn" href="https://github.com/niconistal/kartu/discussions">Show your cart</a>
+    </div>
+  </div>
+</section>
+
+<footer class="site wrap">
+  <span>Kartu · <a href="https://github.com/niconistal/kartu/blob/main/LICENSE">MIT</a> core, player and carts · <a href="https://github.com/niconistal/kartu/blob/main/maker/LICENSE">AGPL-3.0</a> maker · Games you make are yours.</span>
+  <span><a href="docs/index.html">Docs</a> · <a href="docs/api.html">API</a> · <a href="play/">Play</a> · <a href="https://github.com/niconistal/kartu">GitHub</a></span>
+</footer>
+
+<script>
+document.getElementById('copy').addEventListener('click', async (e) => {
+  try { await navigator.clipboard.writeText(document.getElementById('install-cmd').textContent); e.target.textContent = 'Copied'; }
+  catch { e.target.textContent = 'Select & copy'; }
+  setTimeout(() => e.target.textContent = 'Copy', 1600);
+});
+</script>
+</body>
+</html>

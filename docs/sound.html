@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sound · Kartu</title>
+<meta name="description" content="Kartu has an 8-voice synthesiser inside the console: 24 kHz mono, 400 samples per frame, the">
+<meta property="og:title" content="Sound · Kartu">
+<meta property="og:description" content="Kartu has an 8-voice synthesiser inside the console: 24 kHz mono, 400 samples per frame, the">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/sound.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="making-a-game.html">Making a game</a></li><li><a href="cart-format.html">Cart format</a></li><li><a href="kits.html">Kits</a></li><li><a href="sound.html" class="on" aria-current="page">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html">The runner</a></li><li><a href="ai-tools.html">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html">The console</a></li><li><a href="handhelds.html">Handhelds</a></li><li><a href="building.html">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="sound"><a class="anchor" href="#sound" aria-hidden="true">#</a>Sound</h1>
+<p>Kartu has an 8-voice synthesiser inside the console: 24 kHz mono, 400 samples per frame, the
+same samples on every target. Songs use up to 6 voices; sound effects get the rest. Everything
+is written as text in <code>assets.cw</code>, and <strong>everything works with no setup</strong> — the console ships
+with instruments, sound effects and songs, and the top-down kit already plays effects for its
+events.</p>
+<p>Hear it all in the <code>jukebox</code> cart: <code>kartu web carts/jukebox</code>.</p>
+<h2 id="from-lua"><a class="anchor" href="#from-lua" aria-hidden="true">#</a>From Lua</h2>
+<div class="table-wrap"><table><thead><tr><th>call</th><th>what</th></tr></thead><tbody><tr><td><code>sfx(name [, {vol=0..2, pitch=semitones}])</code></td><td>play a sound effect. Several can overlap; the oldest is cut if all voices are busy</td></tr>
+<tr><td><code>music(name [, {vol=, loop=bool}])</code></td><td>start a song (loops unless the song says <code>once</code>). Calling it again with the song already playing does nothing, so it&#39;s safe every frame</td></tr>
+<tr><td><code>music(nil [, {fade=secs}])</code></td><td>stop the music, optionally fading out</td></tr>
+<tr><td><code>music_playing()</code></td><td>name of the song playing, or nil</td></tr>
+<tr><td><code>play(mml [, {inst=&quot;bell&quot;, vol=0.7}])</code></td><td>play a short MML tune as a sound effect: <code>play(&quot;o5 l16 c e g &gt;c4&quot;, {inst=&quot;bell&quot;})</code></td></tr>
+<tr><td><code>has(name, &quot;sfx&quot;|&quot;song&quot;|&quot;instrument&quot;)</code></td><td>does it exist?</td></tr></tbody></table></div>
+<h2 id="built-in"><a class="anchor" href="#built-in" aria-hidden="true">#</a>Built in</h2>
+<p><strong>Sound effects:</strong> <code>coin pickup key heal powerup jump hit hurt swing laser explosion blip select door locked talk step magic win lose start</code></p>
+<p><strong>Songs:</strong> <code>adventure</code> (bright, loops) · <code>village</code> (gentle) · <code>cave</code> (slow, minor) · <code>boss</code> (fast,
+tense) · <code>victory</code> (a short fanfare, plays once)</p>
+<p><strong>Instruments:</strong> <code>piano epiano bell marimba organ flute lead softlead strings pad brass pluck harp bass synbass pluckbass square pulse triangle saw sine noise</code> and the drums <code>kick snare hat openhat clap tom crash</code></p>
+<p><code>kartu docs sound_songs</code> prints the built-in songs, instruments and effects as text — the best
+starting point for your own.</p>
+<h2 id="your-own-sounds"><a class="anchor" href="#your-own-sounds" aria-hidden="true">#</a>Your own sounds</h2>
+<p>Three keywords. Sounds have their own namespace (a <code>coin</code> sfx and a <code>coin</code> sprite are fine).
+Declare instruments before the songs that use them.</p>
+<pre><code class="hljs language-text">instrument buzz from=lead duty=0.25 vibrato=0.3,6    -- start from a built-in, change a few things
+instrument twang wave=pluck decay=0.6 lowpass=0.5
+sfx zap wave=saw from=C7 to=C4 len=0.2 vol=0.6       -- a pitch sweep
+sfx chime notes=&quot;o6 l16 c e g &gt;c4&quot; inst=bell         -- or a little tune
+song theme bpm=120                                   -- then one line per channel (max 6), indented
+  lead  @lead o5 l8 [e d c d e e e4]2 | d d d4 e g g4
+  bass  @bass o3 l4 c g c g c g c g
+  drums @drums [k8 h8 s8 h8]4</code></pre>
+<h3 id="instruments"><a class="anchor" href="#instruments" aria-hidden="true">#</a>Instruments</h3>
+<p><code>wave=square|triangle|saw|sine|noise|pluck|fm</code> · <code>duty=0.5</code> (square) · <code>attack decay sustain release</code> (seconds; sustain 0..1) · <code>vol</code> · <code>vibrato=depth,rate[,delay]</code> (semitones, Hz, s) ·
+<code>slide=semitones,secs</code> (start off-pitch and glide in) · <code>lowpass=0..1</code> (1 = bright, 0.2 = soft) ·
+<code>detune=semitones</code> (a second, detuned oscillator: fuller) · <code>fm=ratio,index[,decay]</code> (bells,
+e-pianos) · <code>noise=0..1</code> (mix noise in) · <code>transpose</code> · <code>note=C2</code> (fixed pitch: drums) ·
+<code>from=name</code> (start from another instrument).</p>
+<p><code>pluck</code> is Karplus–Strong string synthesis; <code>fm</code> is 2-operator FM.</p>
+<h3 id="sound-effects"><a class="anchor" href="#sound-effects" aria-hidden="true">#</a>Sound effects</h3>
+<p><strong>Sweeps:</strong> <code>wave from to len vol duty vibrato noise lowpass env=decay|flat|swell</code>, where <code>from</code>
+and <code>to</code> are notes (<code>C5</code>, <code>F#3</code>) or Hz. <strong>Tunes:</strong> <code>notes=&quot;MML&quot; inst= bpm=150 vol=</code>.</p>
+<h3 id="songs"><a class="anchor" href="#songs" aria-hidden="true">#</a>Songs</h3>
+<p><code>song name bpm=N [once] [vol=0.8]</code>, then indented channel lines: <code>&lt;channel&gt; @instrument &lt;MML&gt;</code>.
+Channel lines with the same name join up, so a long part can span lines. The song loops at the
+end of its <strong>longest</strong> channel: make every channel the same length (<code>check</code> warns if not and
+prints each song&#39;s length in bars).</p>
+<h3 id="mml"><a class="anchor" href="#mml" aria-hidden="true">#</a>MML</h3>
+<p><code>c d e f g a b</code> with <code>#</code>/<code>+</code> sharp and <code>-</code> flat, then an optional length (<code>4</code> quarter, <code>8</code>
+eighth, <code>2</code> half, <code>1</code> whole, <code>16</code>, <code>3</code>/<code>6</code>/<code>12</code> triplets; <code>.</code> dotted) · <code>r</code> rest · <code>o4</code> octave
+(o4 c = middle C), <code>&lt;</code> <code>&gt;</code> down/up an octave · <code>l8</code> default length · <code>v0</code>–<code>v15</code> volume (12) ·
+<code>q1</code>–<code>q8</code> how much of each note sounds (7 = slightly detached, 8 = legato) · <code>^8</code> tie · <code>@name</code>
+instrument · <code>[ … ]3</code> repeat (default 2) · <code>|</code> ignored (bar lines, for reading).</p>
+<p>In a <code>@drums</code> channel the letters are drums: <code>k</code> kick, <code>s</code> snare, <code>h</code> hat, <code>o</code> open hat, <code>c</code>
+clap, <code>t</code> tom, <code>x</code> crash, <code>r</code> rest, with lengths as usual (<code>k8 h8 s8 h8</code>).</p>
+<h3 id="writing-music-that-sounds-good"><a class="anchor" href="#writing-music-that-sounds-good" aria-hidden="true">#</a>Writing music that sounds good</h3>
+<ul>
+<li>Melodies in o4–o6, bass in o2–o3.</li>
+<li>Give each channel a role: melody, chords/arpeggio, bass, drums.</li>
+<li>Make every bar add up (4 quarters = <code>l8</code> × 8).</li>
+<li>Build from a four-chord loop (C–G–Am–F, or Am–F–C–G for sad) with the bass on the roots;
+lower the accompaniment (<code>v8</code>).</li>
+<li>Copy a built-in song as a starting point (<code>kartu docs sound_songs</code>).</li>
+</ul>
+<h2 id="hearing-it"><a class="anchor" href="#hearing-it" aria-hidden="true">#</a>Hearing it</h2>
+<ul>
+<li><strong>Web player:</strong> the 🔊 button; sound starts on the first input (browsers require it).</li>
+<li><strong>Runner:</strong> <code>kartu run &lt;cart&gt; --sounds</code> prints <code>[sound fN] sfx coin</code> / <code>music theme</code> lines;
+<code>--wav out.wav</code> writes the sound of the whole run. The summary line <code>audio &lt;hash&gt; …</code> reports
+the peak level and clipped samples when anything played.</li>
+<li><strong>One sound on its own:</strong> <code>kartu sound &lt;cart&gt; --song NAME | --sfx NAME [--secs N] [--wav F]</code>;
+with no name it lists everything the cart can play.</li>
+<li><strong>Handhelds:</strong> the framebuffer player writes to OSS <code>/dev/dsp</code> (<code>--audio DEV</code>, <code>--mute</code>).</li>
+</ul>
+<h2 id="under-the-hood"><a class="anchor" href="#under-the-hood" aria-hidden="true">#</a>Under the hood</h2>
+<p><code>core/src/audio.rs</code>. Plain IEEE arithmetic plus the console&#39;s own <code>exp2</code> and <code>sin</code>
+polynomials, so the samples — and therefore the audio hash — are bit-identical on x86, ARM and
+WebAssembly. ADSR envelopes, a DC blocker and a soft knee on the mix. The web player feeds a
+ScriptProcessor from a ring buffer (≤150 ms).</p>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/docs/sound.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

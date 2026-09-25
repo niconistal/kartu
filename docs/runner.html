@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The runner · Kartu</title>
+<meta name="description" content="screenshots, dumps state, replays inputs and lets bots play. This is the test loop that makes">
+<meta property="og:title" content="The runner · Kartu">
+<meta property="og:description" content="screenshots, dumps state, replays inputs and lets bots play. This is the test loop that makes">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/runner.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="making-a-game.html">Making a game</a></li><li><a href="cart-format.html">Cart format</a></li><li><a href="kits.html">Kits</a></li><li><a href="sound.html">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html" class="on" aria-current="page">The runner</a></li><li><a href="ai-tools.html">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html">The console</a></li><li><a href="handhelds.html">Handhelds</a></li><li><a href="building.html">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="the-runner"><a class="anchor" href="#the-runner" aria-hidden="true">#</a>The runner</h1>
+<p><code>kartu</code> runs carts without a window: it steps the console, prints what the cart logs, saves
+screenshots, dumps state, replays inputs and lets bots play. This is the test loop that makes
+Kartu carts checkable — by you, by CI and by an agent. <code>kartu help</code> prints every flag.</p>
+<h2 id="check"><a class="anchor" href="#check" aria-hidden="true">#</a><code>check</code></h2>
+<pre><code class="hljs language-sh">kartu check &lt;cart&gt; [--frames 120] [--script F] [--press S]</code></pre>
+<p>Everything wrong, at once: every <code>assets.cw</code> error, <code>main.lua</code> syntax, unknown names in
+literal <code>spr(&quot;…&quot;)</code> / <code>bg.map</code> / <code>bg.tile</code> / <code>pal</code> / <code>spawns</code> arguments and unknown flag names
+(with a did-you-mean), <code>move()</code> in a cart with no solid tiles, then a smoke run of N frames for
+runtime errors and dropped sprites. Exit 1 on any error.</p>
+<pre><code class="hljs">$ kartu check carts/crypt
+carts/crypt: 2 palettes, 9 sprites, 3 clips, 5 tiles, 1 maps
+check: 0 error(s), 0 warning(s), ran 120 frames clean</code></pre>
+<h2 id="run"><a class="anchor" href="#run" aria-hidden="true">#</a><code>run</code></h2>
+<pre><code class="hljs language-sh">kartu run &lt;cart&gt; [--frames N] [--seed S] [--script FILE] [--press <span class="hljs-string">&quot;S,S&quot;</span>] [--<span class="hljs-keyword">until</span> TEXT]
+                 [--shot out.png] [--shot-at 70,190] [--shot-every N] [--scale 2]
+                 [--record FILE] [--watch <span class="hljs-string">&quot;a;b&quot;</span>] [--watch-every N] [--dump F,F|end]
+                 [--save FILE] [--load FILE] [--bot PLAN] [--sounds] [--wav FILE]</code></pre>
+<p>Runs N frames (default 600) and prints <code>[log fN] …</code> lines and the final frame hash. The run
+stops at a cart error (exit 2) and at <code>--until</code>.</p>
+<div class="table-wrap"><table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td><code>--until WIN</code></td><td>stop after the first frame whose log contains the text; exit 3 if it never appears. <strong>This is the win check:</strong> <code>kartu run cart --frames 5000 --script win.txt --until WIN</code></td></tr>
+<tr><td><code>--shot F</code></td><td>screenshot of the last frame. <code>--shot-at 70,190</code> saves <code>F-f70.png</code>, <code>F-f190.png</code>; <code>--shot-every 60</code> every 60th frame. A shot of frame F is the picture after that frame&#39;s update + draw</td></tr>
+<tr><td><code>--scale K</code></td><td>screenshot scale (2)</td></tr>
+<tr><td><code>--seed S</code></td><td>the <code>rnd()</code> seed (1 — the web player uses 1 too)</td></tr>
+<tr><td><code>--watch &quot;hero.x;hero.y;state&quot;</code></td><td>print Lua expressions every <code>--watch-every N</code> frames (60). They see globals <strong>and file-level locals</strong>, so no <code>log()</code> calls needed</td></tr>
+<tr><td><code>--dump F,F|end</code></td><td>the cart&#39;s whole state (globals + file-level locals, no functions) as JSON at those frames</td></tr>
+<tr><td><code>--record FILE</code></td><td>write the buttons actually used as an input script (merges <code>--script</code> and <code>--press</code>)</td></tr>
+<tr><td><code>--save FILE</code> / <code>--load FILE</code></td><td>a save is the input so far plus the frame hash; loading replays it from boot and refuses if the hash no longer matches (the cart changed)</td></tr>
+<tr><td><code>--bot PLAN</code></td><td>let a goal bot play (below); exit 4 if it fails or gets stuck</td></tr>
+<tr><td><code>--sounds</code> / <code>--wav F</code></td><td>print <code>[sound fN]</code> lines / write the run&#39;s audio</td></tr></tbody></table></div>
+<p>Exit codes: 0 ok · 1 check failed · 2 cart error · 3 <code>--until</code> never appeared · 4 bot failed.</p>
+<h2 id="input-scripts"><a class="anchor" href="#input-scripts" aria-hidden="true">#</a>Input scripts</h2>
+<p><code>--script FILE</code> or <code>--press &quot;…&quot;</code>. One step per line, or separated by commas/spaces:</p>
+<pre><code class="hljs language-text"># comments start with # or --; blank lines are fine
+30:right+a    from frame 30 on, hold exactly these buttons (replaces what was held)
+40:           release everything
++12:up        frame relative to the previous step (here 52)
+60:a!         tap: add `a` on top of whatever is held, for 1 frame
+70:b!5        add `b` for 5 frames</code></pre>
+<p>Frame F is the frame whose <code>update()</code> sees those buttons — the one logged <code>[log fF]</code>. <code>btnp</code>
+fires in frame F only if the button was up in frame F−1: to press A twice, release it in between
+(<code>100:a!</code>, <code>110:a!</code>).</p>
+<p>The web player&#39;s <strong>● Record</strong> button produces the same format from a human playthrough,
+together with the hash to check it against.</p>
+<h2 id="goal-bots"><a class="anchor" href="#goal-bots" aria-hidden="true">#</a>Goal bots</h2>
+<p>A plan says <em>what</em> to do; the bot works out the buttons each frame. It reads the hero&#39;s box,
+path-finds over the live tile map (<code>solid</code> tiles; a door that opened no longer blocks) and
+steers. Knocked off course, it replans next frame. It doesn&#39;t time jumps.</p>
+<pre><code class="hljs language-text"># one step per line; any step may end with max=N (frames before it fails)
+hero hero                   # expression for the player object (default `hero`); any Lua
+                            #   expression, e.g. {x = p.x + p.hx, y = p.y + p.hy, w = p.hw, h = p.hh}
+solid wall,block            # also treat these tiles as solid (carts without flags)
+avoid bats 24               # route around these objects (a list or one; alive=false/dead=true skipped)
+fight enemies a 30          # or fight them: face and press a within 30 px
+abort state == &quot;over&quot;       # fail at once if this becomes true
+tap a                       # press a for one frame
+hold right 12               # hold buttons for N frames (walk off a screen edge)
+wait 30                     # N frames of nothing
+wait until state == &quot;play&quot;  # until a Lua expression is true
+goto key                    # walk until the hero overlaps it; done at once if it&#x27;s nil (picked up)
+goto flag door              # nearest tile with that flag; a solid one is pushed into (a locked door)
+goto tile 19,8              # walk into that tile
+collect pickups             # every object in the list, nearest first</code></pre>
+<p><code>[bot fN]</code> lines report each step (<code>reached</code>, <code>gone</code>, <code>pushed into it</code>) or why it failed.
+<code>no path from tile (3,2) to (35,6)</code> is a <strong>softlock or a map bug</strong>; <code>stuck at …</code> means something
+blocks the way. Examples: <code>carts/crypt/bot.txt</code> (a hand-written cart), <code>carts/dungeon/bot.txt</code>
+(the kit).</p>
+<h2 id="playtest"><a class="anchor" href="#playtest" aria-hidden="true">#</a><code>playtest</code></h2>
+<pre><code class="hljs language-sh">kartu playtest &lt;cart&gt; [--seeds 1,2] [--plan F]</code></pre>
+<p>Runs <code>bot.txt</code> on seeds 1–3 and decides for itself: won or not, win time, stuck, errors, and
+<strong>unfair hits</strong> (hurt within one second of entering a room). PASS only if the bot wins on every
+seed. Exit 0 on PASS. The seed-1 trace and an end-of-run screenshot land in <code>&lt;cart&gt;/.cw/</code>.</p>
+<pre><code class="hljs">$ kartu playtest carts/dungeon
+playtest PASS: the bot won on every seed, no unfair hits
+seed 1: WON at f1409 (23.5 s)
+seed 2: WON at f1426 (23.8 s)
+seed 3: WON at f1412 (23.5 s)</code></pre>
+<p>Make the game&#39;s <code>log()</code> lines say what happens (<code>ouch 2</code>, <code>got key</code>, <code>room 3</code>, <code>WIN</code>): they are
+what the playtest reads.</p>
+<h2 id="regression-for-a-whole-folder-of-carts"><a class="anchor" href="#regression-for-a-whole-folder-of-carts" aria-hidden="true">#</a>Regression for a whole folder of carts</h2>
+<p><code>scripts/verify-carts.sh</code> runs <code>check</code> on every cart in <code>carts/</code>, replays <code>win.txt</code> with
+<code>--until WIN</code> where there is one, and runs <code>bot.txt</code> with <code>--until WIN</code> where there is one. CI
+runs it on every push.</p>
+<h2 id="bench-sound-play"><a class="anchor" href="#bench-sound-play" aria-hidden="true">#</a><code>bench</code>, <code>sound</code>, <code>play</code></h2>
+<ul>
+<li><code>kartu bench &lt;cart&gt;</code> — headless timing (ms per frame, fps).</li>
+<li><code>kartu sound &lt;cart&gt; --song NAME | --sfx NAME [--secs N] [--wav F]</code> — render one sound.</li>
+<li><code>kartu play &lt;cart&gt;</code> — the Linux framebuffer player for handhelds (<a href="handhelds.html">Handhelds</a>).</li>
+</ul>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/docs/runner.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

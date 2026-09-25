@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The console · Kartu</title>
+<meta name="description" content="┌──────────────────────────────────────────────────────────────┐">
+<meta property="og:title" content="The console · Kartu">
+<meta property="og:description" content="┌──────────────────────────────────────────────────────────────┐">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/console.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="making-a-game.html">Making a game</a></li><li><a href="cart-format.html">Cart format</a></li><li><a href="kits.html">Kits</a></li><li><a href="sound.html">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html">The runner</a></li><li><a href="ai-tools.html">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html" class="on" aria-current="page">The console</a></li><li><a href="handhelds.html">Handhelds</a></li><li><a href="building.html">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="the-console"><a class="anchor" href="#the-console" aria-hidden="true">#</a>The console</h1>
+<h2 id="architecture"><a class="anchor" href="#architecture" aria-hidden="true">#</a>Architecture</h2>
+<pre><code class="hljs">┌──────────────────────────────────────────────────────────────┐
+│  kartu-core  (Rust, MIT)                        one machine  │
+│  assets.rs  text-native assets → palettes, sprites, maps     │
+│  gfx.rs     picture unit: 4 layers, 128 sprites, CRAM, text  │
+│  audio.rs   8-voice synth, MML                               │
+│  world.rs   collision, hit boxes, spawn markers              │
+│  lib.rs     Lua 5.4 sandbox + the console API; kits          │
+│  inspect.rs state dumps and watches (runner only)            │
+└──────────────┬───────────────────┬───────────────────┬───────┘
+               │                   │                   │
+        kartu (player)      web player (wasm)     fbdev + OSS
+   check · run · bots       canvas + keyboard      Miyoo Mini,
+   playtest · art import    + touch pad            any Linux fb
+               │
+        kartu-maker (AGPL)
+   kartu-mcp · new/setup/web · templates · AGENTS.md</code></pre>
+<p><code>kartu-core</code> is a library with no window, no audio device and no files. A host does three
+things: hands in button bits, calls <code>step()</code> sixty times a second, and shows the framebuffer
+(and plays the audio buffer if it has speakers). That is why the same core runs natively, in
+the browser through Emscripten, and on an ARM handheld&#39;s framebuffer.</p>
+<h2 id="embedding-the-core"><a class="anchor" href="#embedding-the-core" aria-hidden="true">#</a>Embedding the core</h2>
+<pre><code class="hljs language-rust"><span class="hljs-keyword">use</span> kartu_core::{Console, BUTTONS};
+
+<span class="hljs-keyword">let</span> <span class="hljs-keyword">mut </span><span class="hljs-variable">c</span> = Console::<span class="hljs-title function_ invoke__">new</span>(&amp;assets_src, &amp;main_lua, <span class="hljs-comment">/* seed */</span> <span class="hljs-number">1</span>)?;
+<span class="hljs-keyword">loop</span> {
+    c.<span class="hljs-title function_ invoke__">step</span>(buttons);                       <span class="hljs-comment">// bit i = BUTTONS[i]: left right up down a b x y l r start select</span>
+    <span class="hljs-keyword">let</span> <span class="hljs-variable">s</span> = c.st.<span class="hljs-title function_ invoke__">borrow</span>();
+    <span class="hljs-keyword">let</span> <span class="hljs-variable">lut</span> = s.gfx.<span class="hljs-title function_ invoke__">lut</span>(|[r, g, b]| <span class="hljs-type">u32</span>::<span class="hljs-title function_ invoke__">from_be_bytes</span>([<span class="hljs-number">0</span>, r, g, b]));
+    <span class="hljs-keyword">for</span> (px, &amp;i) <span class="hljs-keyword">in</span> screen.<span class="hljs-title function_ invoke__">iter_mut</span>().<span class="hljs-title function_ invoke__">zip</span>(&amp;s.gfx.fb) {
+        *px = lut[i <span class="hljs-keyword">as</span> <span class="hljs-type">usize</span>];             <span class="hljs-comment">// 320×240, row-major</span>
+    }
+    speaker.<span class="hljs-title function_ invoke__">push</span>(&amp;s.audio.out);            <span class="hljs-comment">// 400 samples/frame, 24 kHz mono i16</span>
+    <span class="hljs-keyword">if</span> <span class="hljs-keyword">let</span> <span class="hljs-variable">Some</span>(e) = &amp;c.error { <span class="hljs-comment">/* the console already drew it on screen */</span> }
+}</code></pre>
+<p><code>cargo run -p kartu-core --example hello -- hello.ppm</code> renders one frame to a PPM file. A
+desktop window player (SDL, winit, …) is a wanted contribution; the example shows everything it
+needs.</p>
+<h2 id="the-picture-unit"><a class="anchor" href="#the-picture-unit" aria-hidden="true">#</a>The picture unit</h2>
+<ul>
+<li><strong>320 × 240</strong> at a fixed 60 fps. Chosen because it is an exact ×2 on the 640 × 480 panels of
+the handhelds we target, and 4:3 letterboxes gracefully on everything else.</li>
+<li><strong>Colour RAM</strong>: 16 background palettes + 16 sprite palettes × 16 entries = 512 colours on
+screen from 15-bit master colours. The framebuffer stores palette indices, not colours,
+which is what makes it target-independent.</li>
+<li><strong>4 tile layers</strong> of 16 × 16 tiles, each with its own scroll, wrapping in both directions.
+<code>camera()</code> moves them all (except <code>bg.fixed</code> layers, for HUDs); <code>bg.scroll</code> moves one, for
+parallax.</li>
+<li><strong>128 sprites</strong> per frame, up to 64 px, flip X/Y, palette override, drawn just after the
+layer of your choice; later calls draw on top within a layer.</li>
+<li><strong>Text</strong>: 8 × 8 glyphs from the public-domain font8x8, drawn on top of everything, with
+alignment, wrap, boxes, shadow and integer scale.</li>
+</ul>
+<p>There are no line, circle or pixel primitives, no per-line scroll and no 8 × 8 tiles yet.</p>
+<h2 id="the-sandbox"><a class="anchor" href="#the-sandbox" aria-hidden="true">#</a>The sandbox</h2>
+<p>Carts run in Lua 5.4 through <a href="https://github.com/mlua-rs/mlua">mlua</a> with <code>io</code>, <code>os</code>, <code>load</code>
+and <code>require</code> removed, a 32 MB heap and an instruction budget per frame (about 4 million
+instructions for <code>update</code> + <code>draw</code>). A frame that runs over budget is stopped and the error is
+drawn on screen with its line; any runtime error freezes the cart on a readable red error
+screen. Nothing hangs, and nothing reaches the file system, the network or the clock.</p>
+<h2 id="determinism"><a class="anchor" href="#determinism" aria-hidden="true">#</a>Determinism</h2>
+<p>Same seed + same inputs ⇒ the same frames and the same samples, bit for bit, on x86, ARM and
+WebAssembly. This is the property everything else stands on: replay scripts, saves, the bots,
+the web player&#39;s <em>Verify</em> button and the whole playtest story.</p>
+<p>How: <code>rnd</code> is seeded; there is no clock; <code>sin</code>/<code>cos</code> are a polynomial rather than the C <code>libm</code>
+(which differs across targets); the framebuffer holds palette indices; and the synth uses its
+own <code>exp2</code>/<code>sin</code> so audio is deterministic too. <code>Console::hash()</code> and <code>Console::audio_hash()</code>
+expose it.</p>
+<h2 id="limits-and-why"><a class="anchor" href="#limits-and-why" aria-hidden="true">#</a>Limits, and why</h2>
+<div class="table-wrap"><table><thead><tr><th>limit</th><th>value</th><th>why</th></tr></thead><tbody><tr><td>source size</td><td>unlimited</td><td>golfed code is where models make mistakes; we limit runtime instead</td></tr>
+<tr><td>instructions / frame</td><td>~4 M</td><td>keeps a runaway loop from hanging a handheld; plenty for a 320×240 game</td></tr>
+<tr><td>Lua heap</td><td>32 MB</td><td>fits the smallest handheld we care about with room to spare</td></tr>
+<tr><td>sprites / frame</td><td>128</td><td>forces scenes to stay readable</td></tr>
+<tr><td>palettes</td><td>16 × 16</td><td>palettes are the rails that keep art coherent</td></tr>
+<tr><td>map</td><td>256 × 256 tiles</td><td>a big world, still one text file</td></tr>
+<tr><td>buttons</td><td>12</td><td>anything that plays in the browser plays on every handheld</td></tr></tbody></table></div>
+<h2 id="cart-format-version"><a class="anchor" href="#cart-format-version" aria-hidden="true">#</a>Cart format version</h2>
+<p><code>kartu.toml</code> carries <code>format = 1</code>. A newer Kartu reads older carts; an older Kartu refuses a
+newer format with a clear message. Format changes come with a migration and a changelog entry.</p>
+<h2 id="crates"><a class="anchor" href="#crates" aria-hidden="true">#</a>Crates</h2>
+<div class="table-wrap"><table><thead><tr><th>crate</th><th>licence</th><th></th></tr></thead><tbody><tr><td><code>kartu-core</code></td><td>MIT</td><td>the console. <code>mlua</code> (vendored Lua 5.4) is its only dependency</td></tr>
+<tr><td><code>kartu</code></td><td>MIT</td><td>the runner, web player, framebuffer player, art import</td></tr>
+<tr><td><code>kartu-maker</code></td><td>AGPL-3.0</td><td><code>kartu-mcp</code>, <code>new</code>/<code>setup</code>/<code>web</code>, templates, the <code>AGENTS.md</code> skill</td></tr></tbody></table></div>
+<p><code>kartu-core</code> builds with <code>cargo package -p kartu-core</code>; publishing to crates.io is on the list.</p>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/docs/console.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

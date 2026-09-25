@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI tools · Kartu</title>
+<meta name="description" content="Kartu meets agents at three levels. The lowest is never broken; the higher ones are">
+<meta property="og:title" content="AI tools · Kartu">
+<meta property="og:description" content="Kartu meets agents at three levels. The lowest is never broken; the higher ones are">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/ai-tools.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="making-a-game.html">Making a game</a></li><li><a href="cart-format.html">Cart format</a></li><li><a href="kits.html">Kits</a></li><li><a href="sound.html">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html">The runner</a></li><li><a href="ai-tools.html" class="on" aria-current="page">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html">The console</a></li><li><a href="handhelds.html">Handhelds</a></li><li><a href="building.html">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="ai-tools"><a class="anchor" href="#ai-tools" aria-hidden="true">#</a>AI tools</h1>
+<p>Kartu meets agents at three levels. The lowest is never broken; the higher ones are
+conveniences built on it.</p>
+<ol>
+<li><strong>The CLI.</strong> <code>kartu check</code>, <code>run</code>, <code>playtest</code> print plain text with stable exit codes. Any
+agent that can run a shell command can make Kartu games.</li>
+<li><strong><code>AGENTS.md</code>.</strong> <code>kartu new</code> writes a guide into every cart: the workflow, the tools, the rules
+of the console. <code>CLAUDE.md</code> contains <code>@AGENTS.md</code>, so Claude Code reads it too; other agents
+that look for <code>AGENTS.md</code> find it directly.</li>
+<li><strong>MCP.</strong> <code>kartu mcp</code> serves the same functions over the Model Context Protocol, with
+screenshots returned as images. <code>kartu setup</code> connects Claude Code.</li>
+</ol>
+<h2 id="what-kartu-new-writes"><a class="anchor" href="#what-kartu-new-writes" aria-hidden="true">#</a>What <code>kartu new</code> writes</h2>
+<pre><code class="hljs language-text">frog-quest/
+├── main.lua      a working one-room game (the topdown template)
+├── assets.cw     its art, palettes and sounds
+├── bot.txt       the goal bot&#x27;s plan = proof it can be won
+├── kartu.toml    title, format version
+├── AGENTS.md     how to make a Kartu game (below)
+├── CLAUDE.md     @AGENTS.md
+├── .mcp.json     {&quot;mcpServers&quot;: {&quot;kartu&quot;: {&quot;command&quot;: &quot;kartu&quot;, &quot;args&quot;: [&quot;mcp&quot;, &quot;--cart&quot;, &quot;.&quot;]}}}
+└── .gitignore    .cw/</code></pre>
+<p>Then <code>cd frog-quest &amp;&amp; claude</code> (or <code>codex</code>, <code>gemini</code>, an editor agent…) and describe the game.</p>
+<h2 id="agentsmd"><a class="anchor" href="#agentsmd" aria-hidden="true">#</a><code>AGENTS.md</code></h2>
+<p>The guide is short and lives in the repo at <a href="https://github.com/niconistal/kartu/blob/main/maker/skill/AGENTS.md"><code>maker/skill/AGENTS.md</code></a>.
+The heart of it:</p>
+<ol>
+<li><strong>Read before writing</strong> — <code>docs</code> with no topic lists the topics; <code>kits</code> gives a whole game from one table.</li>
+<li><strong>Start from the working starter</strong> and change it toward the brief. Small steps, <code>check</code> after every edit.</li>
+<li><strong>Look at it</strong> — <code>run</code> with screenshots at a few frames, and actually look.</li>
+<li><strong>Make <code>log()</code> lines say what happens</strong> — <code>got key</code>, <code>room 2</code>, <code>hurt</code>, and exactly <code>WIN</code>.</li>
+<li><strong>Prove it can be won</strong> — update <code>bot.txt</code>, <code>playtest</code> until it passes on every seed.</li>
+<li><strong>You&#39;re done when playtest passes and the screenshots match the brief.</strong> Small and polished beats big and broken.</li>
+</ol>
+<p>If you improve the guide, everyone&#39;s agents get better: it is the single most leveraged file
+in the repository.</p>
+<h2 id="kartu-setup"><a class="anchor" href="#kartu-setup" aria-hidden="true">#</a><code>kartu setup</code></h2>
+<p>Writes a Claude Code <strong>skill</strong> (<code>~/.claude/skills/kartu/SKILL.md</code>) so that &quot;make me a game&quot;
+in any session knows to reach for <code>kartu new</code>. With <code>--mcp</code> it also registers the MCP server
+for every session (<code>claude mcp add -s user kartu -- kartu mcp --root .</code>); without it, carts
+made by <code>kartu new</code> bring their own <code>.mcp.json</code>, which is usually enough.</p>
+<p>Other agents: point them at the <code>kartu</code> binary and <code>AGENTS.md</code>. For MCP clients, the server
+command is <code>kartu mcp --cart &lt;dir&gt;</code> (one cart) or <code>kartu mcp --root &lt;dir&gt;</code> (a folder of carts).</p>
+<h2 id="the-mcp-server"><a class="anchor" href="#the-mcp-server" aria-hidden="true">#</a>The MCP server</h2>
+<p><code>kartu-mcp</code> (the <code>maker/</code> crate, AGPL-3.0) speaks MCP over stdio; <code>kartu mcp …</code> runs it.</p>
+<pre><code class="hljs">kartu mcp --cart .                 this folder is the cart
+kartu mcp --root DIR               a folder of carts; tools take a `cart` argument
+          --library DIR            more art to search (repeatable; adds to config + the starter library)
+          --log FILE               append one JSON line per tool call</code></pre>
+<p>One workspace per cart: the cart folder plus a private <code>.cw/</code> scratch dir for shots and runner
+output. Tools shell out to the <code>kartu</code> runner next to the binary (90 s cap per run).</p>
+<div class="table-wrap"><table><thead><tr><th>tool</th><th>what</th></tr></thead><tbody><tr><td><code>docs</code></td><td>the API reference by topic (<code>kits</code>, <code>assets</code>, <code>bots</code>, <code>sound</code>, …), <code>sound_songs</code> (built-ins as text), <code>kit_source</code>, <code>all</code></td></tr>
+<tr><td><code>cart_new</code></td><td>a new cart from the <code>topdown</code> template (a working one-room game + <code>bot.txt</code>) or blank</td></tr>
+<tr><td><code>cart_list</code> / <code>cart_read</code></td><td>files</td></tr>
+<tr><td><code>cart_write</code> / <code>cart_patch</code></td><td>write a file, or apply exact-once replacements (all or nothing). Writes of <code>main.lua</code> / <code>assets.cw</code> return the <code>check</code> result at once</td></tr>
+<tr><td><code>check</code></td><td>the runner&#39;s check</td></tr>
+<tr><td><code>run</code></td><td>frames, seed, script; returns logs, watches, the hash and up to 6 screenshots <strong>as images</strong>; <code>bot=true</code> plays the plan</td></tr>
+<tr><td><code>state</code></td><td>the cart&#39;s state as JSON at given frames (<code>--dump</code>)</td></tr>
+<tr><td><code>playtest</code></td><td><code>bot.txt</code> on seeds 1–3 until WIN; fairness; trace and end shot; PASS / FAIL</td></tr>
+<tr><td><code>asset_search</code> / <code>asset_copy</code></td><td>search the art library (your <code>library</code> dirs + the starter carts) and copy sprites, tiles, maps or sounds into the cart, pulling palettes, <code>from=</code> sources, clip frames and map tiles along; name clashes are renamed (<code>dungeon_main</code>, <code>key_dungeon</code>)</td></tr></tbody></table></div>
+<p>The starter carts double as the art library, so a new game can begin from a knight, a bat, a
+key and a dungeon tileset that already fit together.</p>
+<h2 id="configuration"><a class="anchor" href="#configuration" aria-hidden="true">#</a>Configuration</h2>
+<p><code>~/.config/kartu/config.toml</code> (never touched by updates):</p>
+<pre><code class="hljs language-toml"><span class="hljs-attr">library</span> = [<span class="hljs-string">&quot;~/kartu-art&quot;</span>, <span class="hljs-string">&quot;~/my-carts&quot;</span>]   <span class="hljs-comment"># more carts/packs the AI can search and copy from</span>
+<span class="hljs-attr">judge</span> = <span class="hljs-string">&quot;~/bin/my-judge&quot;</span>                  <span class="hljs-comment"># optional, below</span>
+<span class="hljs-section">[device.miyoo]</span>
+<span class="hljs-attr">ip</span> = <span class="hljs-string">&quot;192.168.1.50&quot;</span></code></pre>
+<p><code>kartu config</code> prints the effective settings and paths; <code>kartu doctor</code> checks the install.</p>
+<h2 id="the-judge-hook"><a class="anchor" href="#the-judge-hook" aria-hidden="true">#</a>The judge hook</h2>
+<p><code>playtest</code> decides the mechanical facts: won, time, stuck, unfair hits. Opinions — is it too
+easy, is the layout confusing, does it match the brief — are yours to plug in. Set <code>judge</code> to a
+command; <code>scripts/judge.py</code> shows the contract: it receives JSON (<code>{cart, facts, trace}</code>) on
+stdin and prints its opinions, which <code>playtest</code> appends to its report. Anything can sit behind
+it: a script, another model, a person.</p>
+<h2 id="cost-and-quality-honestly"><a class="anchor" href="#cost-and-quality-honestly" aria-hidden="true">#</a>Cost and quality, honestly</h2>
+<p>In our runs, a capable model given <code>kartu new</code> + <code>AGENTS.md</code> + the MCP tools builds a small,
+provably winnable top-down game from a one-line brief in one to two attempts. The games are
+short and plain unless asked for more; the art is only as good as the starter library plus
+whatever you import. The parts that most improve results are, in order: the kit&#39;s defaults,
+the guide, and the art available to copy. All three are in this repository and all three take
+pull requests.</p>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/docs/ai-tools.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Making a game · Kartu</title>
+<meta name="description" content="The same loop works whether the hands on the keyboard belong to a person or a language model.">
+<meta property="og:title" content="Making a game · Kartu">
+<meta property="og:description" content="The same loop works whether the hands on the keyboard belong to a person or a language model.">
+<meta property="og:image" content="https://niconistal.github.io/kartu/docs/images/social.jpg">
+<meta property="og:url" content="https://niconistal.github.io/kartu/docs/making-a-game.html">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body class="doc">
+<header class="top">
+  <a class="brand" href="../index.html"><span class="mark">▣</span> KARTU</a>
+  <nav>
+    <a href="../docs/index.html" class="on">Docs</a>
+    <a href="../docs/api.html">API</a>
+    <a href="../play/">Play</a>
+    <a href="https://github.com/niconistal/kartu">GitHub</a>
+  </nav>
+</header>
+<div class="layout">
+  <aside class="side">
+    <details class="side-menu" open>
+      <summary>Documentation</summary>
+      <ul><li><a href="index.html">Overview</a></li></ul><h4>Start here</h4><ul><li><a href="getting-started.html">Getting started</a></li><li><a href="making-a-game.html" class="on" aria-current="page">Making a game</a></li><li><a href="cart-format.html">Cart format</a></li><li><a href="kits.html">Kits</a></li><li><a href="sound.html">Sound</a></li></ul><h4>Tools</h4><ul><li><a href="runner.html">The runner</a></li><li><a href="ai-tools.html">AI tools</a></li></ul><h4>Under the hood</h4><ul><li><a href="console.html">The console</a></li><li><a href="handhelds.html">Handhelds</a></li><li><a href="building.html">Building</a></li></ul><h4>Reference</h4><ul><li><a href="api.html">API reference</a></li></ul>
+    </details>
+  </aside>
+  <main class="content">
+<h1 id="making-a-game"><a class="anchor" href="#making-a-game" aria-hidden="true">#</a>Making a game</h1>
+<p>The same loop works whether the hands on the keyboard belong to a person or a language model.
+It is short on purpose:</p>
+<ol>
+<li><strong>Start from something that runs.</strong> <code>kartu new</code> gives you a small, winnable game. Change it
+toward the game you want, in small steps.</li>
+<li><strong>Check after every edit.</strong> <code>kartu check &lt;cart&gt;</code> lists every art error, syntax error and
+unknown name at once, then runs a few frames to catch runtime errors.</li>
+<li><strong>Look at it.</strong> <code>kartu run &lt;cart&gt; --shot-at 120,600</code> saves screenshots. Actually look at
+them: sprites too small to read, text off the screen, everything one colour.</li>
+<li><strong>Make the logs say what happens.</strong> <code>log(&quot;got key&quot;)</code>, <code>log(&quot;room 2&quot;)</code>, <code>log(&quot;hurt&quot;)</code>, and
+exactly <code>log(&quot;WIN&quot;)</code> when the player wins. The bot, the runner and you all read them.</li>
+<li><strong>Prove it can be won.</strong> Write a <code>bot.txt</code> plan and run <code>kartu playtest &lt;cart&gt;</code> until it
+passes on every seed. A hit within a second of entering a room is reported as unfair:
+move the enemy.</li>
+<li><strong>Then stop.</strong> Small and polished beats big and broken.</li>
+</ol>
+<h2 id="with-an-ai"><a class="anchor" href="#with-an-ai" aria-hidden="true">#</a>With an AI</h2>
+<pre><code class="hljs language-sh">kartu new frog-quest &amp;&amp; <span class="hljs-built_in">cd</span> frog-quest
+claude    <span class="hljs-comment"># &quot;make this a game where a frog hops across lily pads to eat 5 flies&quot;</span></code></pre>
+<p><code>kartu new</code> writes the cart <em>and</em> the instructions an agent needs to change it: <code>AGENTS.md</code>
+is this loop written for a model, <code>CLAUDE.md</code> points at it, and <code>.mcp.json</code> gives Claude Code
+the maker tools (<code>check</code>, <code>run</code> with screenshots as images, <code>playtest</code>, <code>asset_search</code>…). Any
+agent with a shell can do the same work with the <code>kartu</code> commands — the MCP tools and the CLI
+are the same functions.</p>
+<p>What makes agents good at Kartu is not a clever prompt. It is that every step above gives them
+something to read: an error with a line number, a screenshot, a JSON dump of the game&#39;s
+state, a PASS or a FAIL with a reason. Put the effort into <code>log()</code> lines and <code>bot.txt</code> and the
+model does the rest.</p>
+<p>Details of the tools and how to connect other agents: <a href="ai-tools.html">AI tools</a>.</p>
+<h2 id="by-hand"><a class="anchor" href="#by-hand" aria-hidden="true">#</a>By hand</h2>
+<p>Everything above, plus <code>kartu web &lt;cart&gt;</code> to play for real. The web player has two things
+worth knowing:</p>
+<ul>
+<li><strong>● Record</strong> restarts the cart at seed 1 and saves your buttons as a replay script. Save it
+as <code>win.txt</code> and <code>kartu run &lt;cart&gt; --script win.txt --until WIN</code> becomes a regression test that
+a human once won this game — and because the console is deterministic, the replay produces
+the same frame hash natively as it did in your browser.</li>
+<li><strong>Verify</strong> replays a fixed script and compares the frame hash with the native build, which is
+how you know the wasm player and the runner agree pixel for pixel.</li>
+</ul>
+<h2 id="anatomy-of-a-cart"><a class="anchor" href="#anatomy-of-a-cart" aria-hidden="true">#</a>Anatomy of a cart</h2>
+<pre><code class="hljs language-text">frog-quest/
+├── main.lua      the game (Lua 5.4)
+├── assets.cw     palettes, sprites, tiles, maps, sounds — plain text
+├── bot.txt       the goal bot&#x27;s plan: proof the game can be won
+├── kartu.toml    title + format version
+├── AGENTS.md     how to make a Kartu game (for agents; CLAUDE.md points here)
+├── .mcp.json     the maker tools for Claude Code
+└── .cw/          runner scratch (screenshots, playtest output); ignored by git</code></pre>
+<p>A cart needs only the first two. A <code>-- title: Frog Quest</code> comment on the first line of
+<code>main.lua</code> names it in the web player&#39;s picker and the handheld menu.</p>
+<h2 id="rules-of-the-console-briefly"><a class="anchor" href="#rules-of-the-console-briefly" aria-hidden="true">#</a>Rules of the console, briefly</h2>
+<ul>
+<li>320 × 240, 16 × 16 tiles (a screen is 20 × 15 tiles), sprites up to 64 px, palettes of
+15 colours + clear, 8 × 8 text.</li>
+<li>No files, clock, network or <code>require</code>. <code>rnd()</code> is seeded, so a run with the same inputs and
+seed is identical everywhere.</li>
+<li>A frame that runs past its instruction budget, or any Lua error, becomes a readable error on
+screen with the line number. Nothing hangs.</li>
+<li>Buttons: <code>left right up down a b x y l r start select</code>.</li>
+</ul>
+<p>The complete rules are in <a href="api.html">API.md</a>.</p>
+<h2 id="writing-a-bot-plan"><a class="anchor" href="#writing-a-bot-plan" aria-hidden="true">#</a>Writing a bot plan</h2>
+<p>A plan says <em>what</em> to do; the bot works out <em>how</em>, frame by frame, by path-finding over the
+live tile map. Plans are short:</p>
+<pre><code class="hljs language-text"># bot.txt for a top-down kit game
+hero world.hero
+avoid world.enemies 20          # or: fight world.enemies a 30
+abort world.state == &quot;over&quot;
+tap a                           # leave the title screen
+wait until world.state == &quot;play&quot;
+collect world.pickups           # everything in this room
+goto tile 19,7                  # walk to the east doorway…
+hold right 16                   # …and through it
+wait until world.room == &quot;pantry&quot;
+goto flag exit</code></pre>
+<p><code>goto key</code> walks until the hero overlaps the object called <code>key</code>; <code>goto flag door</code> walks to the
+nearest tile with that flag; <code>wait until</code> takes any Lua expression. When the bot reports <code>no path from tile (3,2) to (35,6)</code>, that is a softlock or a map bug, not a bot bug. The full plan
+language is in <a href="runner.html#goal-bots">The runner</a>.</p>
+<h2 id="making-it-look-good"><a class="anchor" href="#making-it-look-good" aria-hidden="true">#</a>Making it look good</h2>
+<ul>
+<li>Palettes are the rails. Pick 15 colours per palette with real contrast and stick to them;
+derived sprites (<code>sprite cat_red from=cat pal=villain</code>) give you variants for free.</li>
+<li>Sprites read best at 16 px or bigger. Hero 16 × 16, bosses 32–48.</li>
+<li>Every room needs a wall row under the HUD (the top 14 px are covered).</li>
+<li>Use the built-in music and sound effects first; the top-down kit already plays them for
+every event. Write your own when the defaults feel wrong (<a href="sound.html">Sound</a>).</li>
+<li>Bring your own image generator: <code>kartu art import boss.png --name boss --size 48 --append .</code>
+turns a picture into palette + sprite text (<a href="cart-format.html#importing-art">Cart format → Importing art</a>).</li>
+</ul>
+
+    <footer class="doc-foot">
+      <a href="https://github.com/niconistal/kartu/edit/main/docs/making-a-game.md">Edit this page on GitHub</a> ·
+      <a href="https://github.com/niconistal/kartu/issues/new/choose">Something unclear? Tell us</a>
+    </footer>
+  </main>
+</div>
+<script>
+// remember the sidebar state on phones
+const d = document.querySelector('.side-menu');
+if (matchMedia('(max-width: 900px)').matches) { try { d.open = localStorage.getItem('kartu.side') === '1'; } catch {} }
+d.addEventListener('toggle', () => { try { localStorage.setItem('kartu.side', d.open ? '1' : '0'); } catch {} });
+</script>
+</body>
+</html>

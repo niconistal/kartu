@@ -1,0 +1,34 @@
+[
+ {
+  "name": "froggy",
+  "title": "Froggy"
+ },
+ {
+  "name": "dungeon",
+  "title": "Dungeon (top-down kit)"
+ },
+ {
+  "name": "bakehouse",
+  "title": "Bakehouse (top-down kit)"
+ },
+ {
+  "name": "keyquest",
+  "title": "Key Quest"
+ },
+ {
+  "name": "crypt",
+  "title": "Crypt (Core 1.1 demo)"
+ },
+ {
+  "name": "shanty",
+  "title": "Pirate Treasure + shanty (AI sound edit)"
+ },
+ {
+  "name": "jukebox",
+  "title": "Jukebox (sound test)"
+ },
+ {
+  "name": "bench",
+  "title": "P0 bench (gate scene)"
+ }
+]
