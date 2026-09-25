@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-test-verify:
+    name: build · test · verify carts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release --workspace
+      - name: Test the core
+        run: cargo test -p kartu-core
+      - name: Every cart checks and wins
+        run: scripts/verify-carts.sh
+      - name: Smoke the CLI
+        run: |
+          ./target/release/kartu version
+          ./target/release/kartu new /tmp/smoke-cart --title Smoke
+          ./target/release/kartu check /tmp/smoke-cart
+          ./target/release/kartu playtest /tmp/smoke-cart
