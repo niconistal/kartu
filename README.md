@@ -220,7 +220,7 @@ See [Making a game with an AI](docs/making-a-game.md) and [The maker tools](docs
 | Text | 8 × 8 font (public-domain font8x8), alignment, word-wrap, boxes, shadow, scale ×1–4 |
 | Sound | 8-voice synth at 24 kHz: square/triangle/saw/sine/noise/pluck/FM, ADSR, vibrato, slide, lowpass; MML songs; 29 instruments, 21 sfx and 5 songs built in |
 | Input | D-pad, A B X Y, L R, Start, Select — nothing else, so everything plays everywhere |
-| Code | Lua 5.4; no `io`/`os`/`load`/`require`; 32 MB heap; ~4 M instructions per frame |
+| Code | Lua 5.4; no `io`/`os`/`require`; 32 MB heap; ~4 M instructions per frame; a 4 KB `save()`/`load()` string per cart |
 | World | `move` with wall sliding, `overlap`, hit boxes, tile flags, spawn markers |
 | Determinism | seeded `rnd`, no clock, polynomial `sin`/`cos`; frame and audio hashes match on x86, ARM and WASM |
 | Cart | a folder: `main.lua` + `assets.cw` (+ `bot.txt`, `kartu.toml`) |

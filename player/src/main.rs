@@ -97,6 +97,8 @@ usage: kartu <command> <cart-dir> [options]
                  --dump F,F|end    print the cart's whole state as JSON at those frames
                  --save FILE       write a save at the end (the input so far + a hash check)
                  --load FILE       start from a save instead of from boot
+                 --persist FILE    the cart's save()/load() string: read at boot, written at
+                                   the end ([save fN] lines); without it load() is nil
                  exit 2 if the cart errors (the run stops at the error frame)
   sound <cart>   render one sound without the game: --song NAME | --sfx NAME
                  [--secs N] [--wav F]; no name: list songs, sfx, instruments

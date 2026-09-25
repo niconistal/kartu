@@ -27,7 +27,7 @@ check: 0 error(s), 0 warning(s), ran 120 frames clean
 kartu run <cart> [--frames N] [--seed S] [--script FILE] [--press "S,S"] [--until TEXT]
                  [--shot out.png] [--shot-at 70,190] [--shot-every N] [--scale 2]
                  [--record FILE] [--watch "a;b"] [--watch-every N] [--dump F,F|end]
-                 [--save FILE] [--load FILE] [--bot PLAN] [--sounds] [--wav FILE]
+                 [--save FILE] [--load FILE] [--persist FILE] [--bot PLAN] [--sounds] [--wav FILE]
 ```
 
 Runs N frames (default 600) and prints `[log fN] …` lines and the final frame hash. The run
@@ -43,6 +43,7 @@ stops at a cart error (exit 2) and at `--until`.
 | `--dump F,F\|end` | the cart's whole state (globals + file-level locals, no functions) as JSON at those frames |
 | `--record FILE` | write the buttons actually used as an input script (merges `--script` and `--press`) |
 | `--save FILE` / `--load FILE` | a save is the input so far plus the frame hash; loading replays it from boot and refuses if the hash no longer matches (the cart changed) |
+| `--persist FILE` | the cart's own `save()`/`load()` string: read into `load()` at boot, the last `save()` written at the end (`[save fN] N bytes` lines). Without it a run is unsaved: `load()` is nil and saves are dropped, so runs stay reproducible |
 | `--bot PLAN` | let a goal bot play (below); exit 4 if it fails or gets stuck |
 | `--sounds` / `--wav F` | print `[sound fN]` lines / write the run's audio |
 

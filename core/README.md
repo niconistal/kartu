@@ -5,7 +5,7 @@ people. One deterministic machine, compiled for every screen: desktop, the brows
 (WebAssembly) and ARM retro handhelds.
 
 - **320×240**, 4 tile layers, 128 sprites, 512-colour palette RAM, 8×8 text
-- **Lua 5.4** carts in a sandbox: no `io`/`os`/`load`/`require`, 32 MB heap, an instruction
+- **Lua 5.4** carts in a sandbox: no `io`/`os`/`require`, 32 MB heap, an instruction
   budget per frame (a runaway loop becomes a readable on-screen error, not a hang)
 - **Text-native assets**: sprites, maps and music are plain text in one `assets.cw` file,
   so a language model can read, write and patch them. Every error names the line.

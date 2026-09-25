@@ -111,13 +111,15 @@ Enter = start, Shift = select.
 | `has(name)` | `"sprite"`, `"clip"`, `"tile"`, `"map"`, `"palette"` or nil: make art optional. |
 | `kit(name)` | load a built-in kit (Lua library) — see "Kits". |
 | `log(...)` / `print(...)` | message to the runner's console as `[log fN] …` (N = the frame it was logged in). |
+| `save(str)` | keep one string (max **4096 bytes**, else a runtime error) for the next session: meta-progression, unlocks, best times. A number is converted. Calling it several times in a frame is fine; only the last value is stored. Pack your data yourself (e.g. `"3,12,true"` or a tiny key=value list). |
+| `load()` | the string from the last `save()` of a previous session, or nil (first run, or an unsaved run). Ready from `init()` on. |
 
 **Randomness is seeded.** Same seed + same inputs ⇒ same game, bit for bit. The runner and the
 web player both use seed 1 unless told otherwise (`--seed`). Any change to how often you call
 `rnd` changes everything after it, so replay scripts break when you retune; that's expected.
 
-Standard Lua available: `string`, `table`, `math`, `utf8`, `coroutine` (no `io`, `os`, `load`,
-`require`). Lua 5.4 gotchas: `string.format("%d", 1.5)` is an **error** (floats need
+Standard Lua available: `string`, `table`, `math`, `utf8`, `coroutine` (no `io`, `os`,
+`require`; `load` is the save-game call above, not Lua's). Lua 5.4 gotchas: `string.format("%d", 1.5)` is an **error** (floats need
 `math.floor` first, or `%.0f`); `7 // 2` is integer division (3), `7 / 2` is 3.5.
 
 ## Sound
@@ -272,6 +274,15 @@ kartu run   <cart> [--frames N] [--seed S] [--script FILE] [--press "S,S"]
   the summary gets an `audio <hash> …` line (peak level, clipped samples) when anything played.
   `kartu sound <cart> --song NAME|--sfx NAME [--wav F]` renders one sound on its own;
   with no name it lists everything the cart can play.
+
+### Persistence
+The cart's `save()` string is stored by whatever plays it. Headless runs (`run`, `check`,
+`playtest`, bots) are **unsaved by default**: `load()` is nil and saves are dropped, so a run
+with the same seed and input always plays the same. `kartu run <cart> --persist FILE` turns it
+on: FILE is read into `load()` at boot (if it exists) and the last `save()` is written there when
+the run ends; each save is reported as `[save fN] N bytes`. The web player keeps it in the
+browser's `localStorage` under `cw-save-<cart name>` (the record/replay restarts load it too);
+the Miyoo player keeps `save.txt` in the cart's folder. A save never changes the frame hash.
 
 ### Bots (`--bot plan.txt`)
 A plan says *what* to do; the bot works out the buttons each frame: it reads the hero's box,

@@ -17,7 +17,20 @@ pub fn run(a: &[String]) -> Result<(), String> {
         None => None,
     };
     let seed = save.as_ref().map(|s| s.seed).unwrap_or(a.num("seed", 1));
-    let mut c = cart::load(&dir, seed)?;
+    // --persist FILE: the cart's save()/load() string lives there. Without it a run is
+    // unsaved (load() is nil, saves are dropped), so runs stay reproducible.
+    let persist = a.kv.get("persist");
+    let mut saved = match persist {
+        Some(p) if std::path::Path::new(p).exists() => Some(std::fs::read_to_string(p).map_err(|e| format!("{p}: {e}"))?),
+        _ => None,
+    };
+    let mut c = cart::boot(&dir, seed, saved.clone())?;
+    let take_save = |c: &mut Console, f: u64, saved: &mut Option<String>| {
+        if let (Some(s), Some(_)) = (c.take_save(), persist) {
+            println!("[save f{f}] {} bytes", s.len());
+            *saved = Some(s);
+        }
+    };
     let mut script = Script::default();
     if let Some(p) = a.kv.get("script") {
         script.add(&std::fs::read_to_string(p).map_err(|e| format!("{p}: {e}"))?)?;
@@ -53,6 +66,7 @@ pub fn run(a: &[String]) -> Result<(), String> {
             rec.push(f, b);
             c.step(b);
             c.take_logs();
+            take_save(&mut c, f, &mut saved);
             if let Some(e) = &c.error {
                 return Err(format!("save replay: cart error at f{f}: {e}"));
             }
@@ -80,6 +94,7 @@ pub fn run(a: &[String]) -> Result<(), String> {
                 println!("[sound f{f}] {e}");
             }
         }
+        take_save(&mut c, f, &mut saved);
         for l in c.take_logs() {
             println!("[log f{f}] {l}");
             if hit.is_none() && until.is_some_and(|u| l.contains(u.as_str())) {
@@ -102,6 +117,9 @@ pub fn run(a: &[String]) -> Result<(), String> {
         }
     }
     let dt = t.elapsed().as_secs_f64();
+    if let (Some(p), Some(s)) = (persist, &saved) {
+        std::fs::write(p, s).map_err(|e| format!("{p}: {e}"))?;
+    }
     if !watches.is_empty() && ran % watch_every != 0 {
         println!("[watch f{}] {}", ran.saturating_sub(1), watch_line(&c, &watches));
     }

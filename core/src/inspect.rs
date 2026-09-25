@@ -216,9 +216,10 @@ mod tests {
 
     #[test]
     fn carts_cannot_reach_debug() {
-        let mut c = Console::new(A, "function update() log(type(debug), type(load)) end", 1).unwrap();
+        // `load` is the save-game call, not Lua's: it never compiles code
+        let mut c = Console::new(A, "function update() log(type(debug), type(load('return 1')), type(loadstring)) end", 1).unwrap();
         c.step(0);
-        assert_eq!(c.take_logs(), ["nil nil"]);
+        assert_eq!(c.take_logs(), ["nil nil nil"]);
     }
 
     #[test]

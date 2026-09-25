@@ -9,6 +9,9 @@ thread_local! {
     static PIX: RefCell<Vec<u32>> = RefCell::new(vec![0; W * H]);
     static ERR: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
     static SND: RefCell<Vec<i16>> = RefCell::new(vec![0; kartu_core::audio::PER_FRAME]);
+    // the cart's saved string: handed in by `cw_set_saved`, taken by the next `cw_boot`
+    static SAVED: RefCell<Option<String>> = const { RefCell::new(None) };
+    static SAVE_OUT: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
 }
 
 unsafe fn text<'a>(p: *const u8, n: usize) -> &'a str {
@@ -27,7 +30,8 @@ fn set_err(e: &str) {
 /// Returns 0 on success; on failure `cw_error()` says why.
 #[no_mangle]
 pub unsafe extern "C" fn cw_boot(a: *const u8, al: usize, l: *const u8, ll: usize, seed: u32) -> i32 {
-    match Console::new(text(a, al), text(l, ll), seed as u64) {
+    let saved = SAVED.with(|s| s.borrow().clone());
+    match Console::new_saved(text(a, al), text(l, ll), seed as u64, saved) {
         Ok(c) => {
             CON.with(|x| *x.borrow_mut() = Some(c));
             set_err("");
@@ -83,6 +87,34 @@ pub extern "C" fn cw_hash_lo() -> u32 {
 #[no_mangle]
 pub extern "C" fn cw_frame() -> u32 {
     CON.with(|x| x.borrow().as_ref().map(|c| c.frame() as u32).unwrap_or(0))
+}
+
+/// The cart's saved string (what its `load()` returns), from the page's storage. Call it
+/// before `cw_boot` so `init()` sees it; called later it still reaches the running cart
+/// before its next step. Length 0 = nothing saved.
+#[no_mangle]
+pub unsafe extern "C" fn cw_set_saved(p: *const u8, n: usize) {
+    let s = (n > 0).then(|| text(p, n).to_string());
+    SAVED.with(|x| *x.borrow_mut() = s.clone());
+    CON.with(|x| {
+        if let Some(c) = x.borrow_mut().as_mut() {
+            c.set_saved(s);
+        }
+    });
+}
+
+/// NUL-terminated `save()` written since the last call, "" when there is none. The page
+/// polls it after each step and stores what it gets.
+#[no_mangle]
+pub extern "C" fn cw_take_save() -> *const u8 {
+    let s = CON.with(|x| x.borrow_mut().as_mut().and_then(|c| c.take_save()));
+    SAVE_OUT.with(|x| {
+        let mut v = x.borrow_mut();
+        v.clear();
+        v.extend_from_slice(s.as_deref().unwrap_or("").as_bytes());
+        v.push(0);
+        v.as_ptr()
+    })
 }
 
 /// NUL-terminated last error, empty when fine.

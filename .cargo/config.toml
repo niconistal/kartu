@@ -1,7 +1,7 @@
 # Web player link settings (emcc). Build: scripts/build-web.sh
 [target.wasm32-unknown-emscripten]
 rustflags = [
-  "-C", "link-arg=-sEXPORTED_FUNCTIONS=_main,_cw_boot,_cw_step,_cw_pixels,_cw_hash_hi,_cw_hash_lo,_cw_frame,_cw_error,_cw_audio,_cw_audio_len,_malloc,_free",
+  "-C", "link-arg=-sEXPORTED_FUNCTIONS=_main,_cw_boot,_cw_step,_cw_pixels,_cw_hash_hi,_cw_hash_lo,_cw_frame,_cw_error,_cw_audio,_cw_audio_len,_cw_set_saved,_cw_take_save,_malloc,_free",
   "-C", "link-arg=-sEXPORTED_RUNTIME_METHODS=HEAPU8,HEAP16,HEAPU32,UTF8ToString",
   "-C", "link-arg=-sMODULARIZE=1",
   "-C", "link-arg=-sEXPORT_NAME=Kartu",

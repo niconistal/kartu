@@ -338,7 +338,11 @@ pub fn play(a: &[String]) -> Result<(), String> {
         libc::signal(libc::SIGINT, on_signal as extern "C" fn(libc::c_int) as usize);
         libc::signal(libc::SIGTERM, on_signal as extern "C" fn(libc::c_int) as usize);
     }
-    let mut c = cart::load(&cart_dir, a.num("seed", 1))?;
+    // The cart's save()/load() string is <cart>/save.txt; a save is written the frame it's made.
+    let save_path = std::path::Path::new(&cart_dir).join("save.txt");
+    let saved = std::fs::read_to_string(&save_path).ok();
+    let mut save_err = false;
+    let mut c = cart::boot(&cart_dir, a.num("seed", 1), saved)?;
     // Sound: /dev/dsp unless --mute. No device (or it's busy) = play silently, say why.
     let dsp = a.kv.get("audio").cloned().unwrap_or_else(|| "/dev/dsp".into());
     let (mut oss, audio_info) = if a.kv.contains_key("mute") {
@@ -418,6 +422,14 @@ pub fn play(a: &[String]) -> Result<(), String> {
             o.push(&c.st.borrow().audio.out);
         }
         let t1 = Instant::now();
+        if let Some(s) = c.take_save() {
+            if let Err(e) = write_save(&save_path, &s) {
+                if !save_err {
+                    eprintln!("save.txt: {e} (the cart's saves are lost this session)");
+                    save_err = true;
+                }
+            }
+        }
         let mut picked = false;
         for l in c.take_logs() {
             println!("[cart] {l}");
@@ -502,6 +514,13 @@ pub fn play(a: &[String]) -> Result<(), String> {
         println!("input recorded to {p}");
     }
     Ok(())
+}
+
+/// Write through a temp file and rename, so a power cut mid-write can't leave half a save.
+fn write_save(path: &std::path::Path, s: &str) -> std::io::Result<()> {
+    let tmp = path.with_extension("txt.tmp");
+    std::fs::write(&tmp, s)?;
+    std::fs::rename(&tmp, path)
 }
 
 fn write_report(report: &[String], out: Option<&str>) {

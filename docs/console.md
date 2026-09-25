@@ -67,11 +67,13 @@ There are no line, circle or pixel primitives, no per-line scroll and no 8 × 8 
 
 ## The sandbox
 
-Carts run in Lua 5.4 through [mlua](https://github.com/mlua-rs/mlua) with `io`, `os`, `load`
-and `require` removed, a 32 MB heap and an instruction budget per frame (about 4 million
-instructions for `update` + `draw`). A frame that runs over budget is stopped and the error is
-drawn on screen with its line; any runtime error freezes the cart on a readable red error
-screen. Nothing hangs, and nothing reaches the file system, the network or the clock.
+Carts run in Lua 5.4 through [mlua](https://github.com/mlua-rs/mlua) with `io`, `os` and
+`require` removed (and Lua's `load` replaced by the save-game call), a 32 MB heap and an
+instruction budget per frame (about 4 million instructions for `update` + `draw`). A frame that
+runs over budget is stopped and the error is drawn on screen with its line; any runtime error
+freezes the cart on a readable red error screen. Nothing hangs, and nothing reaches the file
+system, the network or the clock. The one thing that outlives a session is the cart's
+`save()` string (up to 4 KB), which the host stores: see "Persistence" in the API reference.
 
 ## Determinism
 

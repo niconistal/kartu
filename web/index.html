@@ -170,11 +170,23 @@ function putStr(s) {
   M.HEAPU8.set(bytes, p);
   return [p, bytes.length];
 }
+// The cart's save()/load() string lives in localStorage, one key per cart. It goes in before
+// cw_boot so the cart's init() can load() it; a replay/record boot loads it too.
+const saveKey = () => "cw-save-" + cartName;
 function boot(seed = 1) {
+  let saved = "";
+  try { saved = localStorage.getItem(saveKey()) || ""; } catch {}
+  const [s, sl] = putStr(saved);
+  M._cw_set_saved(s, sl);
+  M._free(s);
   const [a, al] = putStr(cart.assets), [l, ll] = putStr(cart.main);
   const r = M._cw_boot(a, al, l, ll, seed);
   M._free(a); M._free(l);
   if (r !== 0) throw new Error(M.UTF8ToString(M._cw_error()));
+}
+function pollSave() {
+  const s = M.UTF8ToString(M._cw_take_save());
+  if (s) { try { localStorage.setItem(saveKey(), s); } catch {} }
 }
 function blit() {
   const p = M._cw_pixels() >> 2;
@@ -285,6 +297,7 @@ async function start() {
       M._cw_step(held);
       work += performance.now() - t;
       audioPush();
+      pollSave();
       acc -= STEP; n++; frames++;
     }
     if (n) blit();

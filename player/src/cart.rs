@@ -4,8 +4,13 @@ use kartu_core::{Console, BUTTONS};
 use std::path::Path;
 
 pub fn load(dir: &str, seed: u64) -> Result<Console, String> {
+    boot(dir, seed, None)
+}
+
+/// `load` with the cart's saved string (what its `load()` returns) from a previous session.
+pub fn boot(dir: &str, seed: u64, saved: Option<String>) -> Result<Console, String> {
     let (assets, lua) = read(dir)?;
-    Console::new(&assets, &lua, seed)
+    Console::new_saved(&assets, &lua, seed, saved)
 }
 
 pub fn read(dir: &str) -> Result<(String, String), String> {

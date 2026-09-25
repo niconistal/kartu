@@ -33,8 +33,14 @@
 //! the synth uses its own math, so [`Console::hash`] and [`Console::audio_hash`] match
 //! bit for bit on x86, ARM and WASM.
 //!
-//! Sandbox: no `io`/`os`/`load`/`require`, a 32 MB Lua heap and an instruction budget
-//! per frame, so a runaway loop becomes an on-screen error instead of a hang.
+//! Sandbox: no `io`/`os`/`require` (and no Lua `load`: that name is the save-game call), a
+//! 32 MB Lua heap and an instruction budget per frame, so a runaway loop becomes an on-screen
+//! error instead of a hang.
+//!
+//! Persistence: a cart may keep one string of up to [`SAVE_MAX`] bytes between sessions with
+//! `save(str)` / `load()`. The host owns the storage: it hands the string in at boot
+//! ([`Console::new_saved`], or [`Console::set_saved`] before the first step) and collects
+//! pending writes with [`Console::take_save`]. Saves never touch the frame hash or the RNG.
 
 pub mod assets;
 pub mod audio;
@@ -60,6 +66,8 @@ const HOOK_EVERY: u32 = 1000;
 pub const DEFAULT_BUDGET: u32 = 4_000_000;
 /// Lua heap limit per cart.
 pub const LUA_MEMORY: usize = 32 * 1024 * 1024;
+/// Longest string `save()` accepts, in bytes.
+pub const SAVE_MAX: usize = 4096;
 
 /// Everything the console API reads and writes; hosts read `gfx` and `audio` from here.
 pub struct State {
@@ -77,6 +85,10 @@ pub struct State {
     pub cam: (i32, i32),
     /// the synth: `audio.out` holds this frame's samples (24 kHz mono)
     pub audio: audio::Mixer,
+    /// what `load()` returns: the string the host stored last session, if any
+    pub saved: Option<String>,
+    /// the latest `save()` not yet collected by the host (`take_save`)
+    pub save_out: Option<String>,
 }
 
 /// One running cart.
@@ -100,7 +112,15 @@ fn btn_bit(name: &str) -> mlua::Result<u16> {
 impl Console {
     /// Parse the assets, load `main.lua` and call its `init()`.
     /// `seed` feeds `rnd()`: same seed + same inputs ⇒ same frames, on every target.
+    /// `load()` returns nil in a console booted this way; see [`Console::new_saved`].
     pub fn new(assets_src: &str, main_lua: &str, seed: u64) -> Result<Console, String> {
+        Console::new_saved(assets_src, main_lua, seed, None)
+    }
+
+    /// [`Console::new`] with the cart's saved string (from a previous session) already in
+    /// place, so `load()` works from `init()` on. A host that only learns it later can still
+    /// call [`Console::set_saved`] before the first step.
+    pub fn new_saved(assets_src: &str, main_lua: &str, seed: u64, saved: Option<String>) -> Result<Console, String> {
         let mut assets = Assets::parse(assets_src)?;
         let gfx = Gfx::new(&assets);
         let audio = audio::Mixer::new(std::mem::take(&mut assets.sound));
@@ -114,6 +134,8 @@ impl Console {
             logs: vec![],
             cam: (0, 0),
             audio,
+            saved,
+            save_out: None,
         }));
         // `debug` is loaded only for the runner's inspector, which takes it out of the
         // globals before any cart code runs (see inspect.rs).
@@ -218,12 +240,46 @@ impl Console {
         std::mem::take(&mut self.st.borrow_mut().logs)
     }
 
+    /// What `load()` returns from now on. Call it before the first `step` (a `load()` inside
+    /// `init()` has already run by then: give the string to [`Console::new_saved`] for that).
+    pub fn set_saved(&mut self, s: Option<String>) {
+        self.st.borrow_mut().saved = s;
+    }
+
+    /// The latest `save()` since the last call, for the host to store; `None` if there was
+    /// none. Only the last value of a frame counts.
+    pub fn take_save(&mut self) -> Option<String> {
+        self.st.borrow_mut().save_out.take()
+    }
+
     fn install_api(&mut self) -> mlua::Result<()> {
         let lua = &self.lua;
         let g = lua.globals();
-        for f in ["dofile", "loadfile", "load", "require"] {
+        for f in ["dofile", "loadfile", "require"] {
             g.set(f, Value::Nil)?;
         }
+
+        // save(str) / load(): one string per cart that outlives the session (the host stores
+        // it). Lua's own `load` is replaced, which keeps the sandbox closed.
+        let st = self.st.clone();
+        g.set(
+            "save",
+            lua.create_function(move |_, v: Value| {
+                let s = match &v {
+                    Value::String(s) => s.to_str().map_err(|_| mlua::Error::runtime("save: the string must be valid UTF-8"))?.to_string(),
+                    Value::Integer(i) => i.to_string(),
+                    Value::Number(n) => n.to_string(),
+                    _ => return Err(mlua::Error::runtime("save: expects a string")),
+                };
+                if s.len() > SAVE_MAX {
+                    return Err(mlua::Error::runtime(format!("save: too big ({} bytes, max {SAVE_MAX})", s.len())));
+                }
+                st.borrow_mut().save_out = Some(s);
+                Ok(())
+            })?,
+        )?;
+        let st = self.st.clone();
+        g.set("load", lua.create_function(move |_, ()| Ok(st.borrow().saved.clone()))?)?;
 
         let st = self.st.clone();
         g.set(
@@ -546,6 +602,30 @@ mod tests {
         let mut c = Console::new(a, "function update() while true do end end", 1).unwrap();
         c.step(0);
         assert!(c.error.as_deref().unwrap_or("").contains("budget"), "{:?}", c.error);
+    }
+
+    #[test]
+    fn save_and_load() {
+        let a = "palette p\n . clear\n k #ffffff\n";
+        let m = "n = (load() or 0) + 1\nfunction update() if frame() == 1 then save('x' .. n) save(n) end end\nfunction draw() rnd() end";
+        let mut c = Console::new_saved(a, m, 1, Some("41".into())).unwrap();
+        assert_eq!(c.take_save(), None);
+        c.step(0);
+        c.step(0);
+        assert_eq!(c.take_save().as_deref(), Some("42"), "{:?}", c.error);
+        assert_eq!(c.take_save(), None);
+        // the save leaves the picture and the RNG alone: same hash as a run that never saved
+        let mut plain = Console::new(a, "function draw() rnd() end", 1).unwrap();
+        plain.step(0);
+        plain.step(0);
+        assert_eq!(c.hash(), plain.hash());
+        let mut c = Console::new(a, "function init() load2 = load() end", 1).unwrap();
+        c.set_saved(Some("later".into()));
+        assert_eq!(c.eval_json("load2", 1).unwrap(), "null");
+        assert_eq!(c.eval_json("load()", 1).unwrap(), "\"later\"");
+        let mut c = Console::new(a, "function update() save(string.rep('x', 4097)) end", 1).unwrap();
+        c.step(0);
+        assert!(c.error.as_deref().unwrap_or("").contains("save: too big (4097 bytes, max 4096)"), "{:?}", c.error);
     }
 
     #[test]
