@@ -116,6 +116,38 @@ song theme bpm=120
   drums @drums [k8 h8 s8 h8]4
 ```
 
+## Fonts
+
+`text` draws with the built-in 8 × 8 font until a cart brings its own. A `font` block is a
+bitmap font: one `glyph` per character, each exactly `height` rows of `#` (ink) and `.`
+(empty). A glyph's width is its row length, so fonts can be proportional; `fixed=N` makes a
+monospace grid instead.
+
+```text
+font story height=7 spacing=1 space=3   -- also line= (px between lines, default height+2), fixed=N
+glyph i
+#
+.
+#
+#
+#
+#
+.
+glyph space                             -- `space`, one char, or U+00E9 for any Unicode char
+..
+..
+..
+..
+..
+..
+..
+```
+
+In Lua, `font("story")` makes it the default for every later `text`/`textw` call (`font()`
+goes back to the built-in one), or pick per call: `text(s, x, y, {font = "story"})`,
+`textw(s, "story")`. A char the font lacks falls back to the built-in glyph (8 px), or to the
+font's `?` beyond ASCII. Fonts have their own namespace.
+
 ## Importing art
 
 Bring your own image generator or paint program: `kartu art import` turns any PNG into
@@ -152,6 +184,7 @@ the edges. Small sprites read best from simple, high-contrast images.
 | sprites | 1–64 px per side; 128 drawn per frame (extras dropped, `check` warns) |
 | tiles | 16 × 16; 16 distinct flag names |
 | maps | up to 256 × 256 tiles; 4 layers on screen |
-| names | one namespace for sprites/clips/tiles/maps; palettes and sounds have their own |
+| fonts | glyphs up to 32 × 32 px, one colour (text's `col=`) |
+| names | one namespace for sprites/clips/tiles/maps; palettes, fonts and sounds have their own |
 
 Reference: [API.md → assets.cw](../API.md#assetscw)

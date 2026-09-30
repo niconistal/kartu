@@ -89,6 +89,8 @@ pub struct State {
     pub saved: Option<String>,
     /// the latest `save()` not yet collected by the host (`take_save`)
     pub save_out: Option<String>,
+    /// default font for `text`/`textw` set by `font(name)`; None = built-in 8×8
+    pub font: Option<u16>,
 }
 
 /// One running cart.
@@ -136,6 +138,7 @@ impl Console {
             audio,
             saved,
             save_out: None,
+            font: None,
         }));
         // `debug` is loaded only for the runner's inspector, which takes it out of the
         // globals before any cart code runs (see inspect.rs).

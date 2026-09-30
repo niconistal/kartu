@@ -2,7 +2,7 @@
 //! of CRAM (16 BG palettes + 16 sprite palettes × 16). The framebuffer holds CRAM indices,
 //! not RGB, so a frame hash is identical on every target no matter the output format.
 
-use crate::assets::{Assets, Image};
+use crate::assets::{Assets, Font, Image};
 use crate::font::FONT8;
 
 pub const W: usize = 320;
@@ -57,6 +57,8 @@ pub struct TextCmd {
     pub shadow: Option<u16>,
     /// box behind the whole block: x, y, w, h, colour
     pub bg: Option<(i32, i32, i32, i32, u16)>,
+    /// cart font index (`Assets::fonts`); None = the built-in 8×8 font
+    pub font: Option<u16>,
 }
 
 pub struct Gfx {
@@ -130,12 +132,24 @@ impl Gfx {
             if let Some((x, y, w, h, c)) = t.bg {
                 self.fill_rect(x, y, w, h, c);
             }
+            let font = t.font.map(|f| &a.fonts[f as usize]);
+            let lh = font.map_or(LINE_H, |f| f.line);
             for (i, (line, x)) in t.lines.iter().enumerate() {
-                let y = t.y + i as i32 * LINE_H * t.scale;
-                if let Some(sc) = t.shadow {
-                    self.text_scaled(line, x + t.scale, y + t.scale, sc, t.scale);
+                let y = t.y + i as i32 * lh * t.scale;
+                match font {
+                    None => {
+                        if let Some(sc) = t.shadow {
+                            self.text_scaled(line, x + t.scale, y + t.scale, sc, t.scale);
+                        }
+                        self.text_scaled(line, *x, y, t.col, t.scale);
+                    }
+                    Some(f) => {
+                        if let Some(sc) = t.shadow {
+                            self.text_font(f, line, x + t.scale, y + t.scale, sc, t.scale);
+                        }
+                        self.text_font(f, line, *x, y, t.col, t.scale);
+                    }
                 }
-                self.text_scaled(line, *x, y, t.col, t.scale);
             }
         }
         self.sprites.clear();
@@ -173,6 +187,40 @@ impl Gfx {
                 }
             }
             cx += 8 * k;
+        }
+    }
+
+    /// One line of text in a cart font, each font pixel drawn `k`×`k`. A char the font lacks
+    /// falls back to the built-in 8×8 glyph (8 px advance), and to the font's `?` beyond ASCII.
+    pub fn text_font(&mut self, f: &Font, s: &str, x: i32, y: i32, col: u16, k: i32) {
+        let mut cx = x;
+        for ch in s.chars() {
+            if let Some(g) = f.glyphs.get(&ch) {
+                for ry in 0..f.height {
+                    for rx in 0..g.w {
+                        if g.pix[ry * g.w + rx] {
+                            self.plot(cx + rx as i32 * k, y + ry as i32 * k, col, k);
+                        }
+                    }
+                }
+            } else if ch == ' ' {
+            } else if !(32..127).contains(&(ch as u32)) && f.glyphs.contains_key(&'?') {
+                self.text_font(f, "?", cx, y, col, k);
+            } else {
+                let mut b = [0u8; 4];
+                self.text_scaled(ch.encode_utf8(&mut b), cx, y, col, k);
+            }
+            cx += f.char_w(ch) * k;
+        }
+    }
+
+    fn plot(&mut self, px: i32, py: i32, col: u16, k: i32) {
+        if k == 1 {
+            if (0..W as i32).contains(&px) && (0..H as i32).contains(&py) {
+                self.fb[py as usize * W + px as usize] = col;
+            }
+        } else {
+            self.fill_rect(px, py, k, k, col);
         }
     }
 

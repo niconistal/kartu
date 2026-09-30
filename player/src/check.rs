@@ -59,11 +59,12 @@ pub fn check(a: &[String]) -> Result<(), String> {
     }
 
     let own = |k: &str| assets.sound.declared.iter().filter(|d| d.starts_with(k)).count();
+    let fonts = if assets.fonts.is_empty() { String::new() } else { format!(", {} fonts", assets.fonts.len()) };
     let snd = if assets.sound.declared.is_empty() { String::new() } else {
         format!(", {} instruments, {} sfx, {} songs", own("instrument "), own("sfx "), own("song "))
     };
     println!(
-        "{dir}: {} palettes, {} sprites, {} clips, {} tiles, {} maps{snd}",
+        "{dir}: {} palettes, {} sprites, {} clips, {} tiles, {} maps{fonts}{snd}",
         assets.palettes.len(),
         assets.sprites.len(),
         assets.clips.len(),
@@ -99,6 +100,7 @@ enum Want {
     Flag,
     Sfx,
     Song,
+    Font,
 }
 
 /// Literal asset names in calls that assets.cw doesn't define. Only literals: a name built
@@ -106,7 +108,8 @@ enum Want {
 fn names(lua: &str, a: &Assets) -> Vec<String> {
     // (call, which argument holds the name)
     // usize::MAX = the last argument
-    const CALLS: [(&str, usize, Want); 11] = [
+    const CALLS: [(&str, usize, Want); 12] = [
+        ("font(", 0, Want::Font),
         ("sfx(", 0, Want::Sfx),
         ("music(", 0, Want::Song),
         ("spr(", 0, Want::SprOrClip),
@@ -163,6 +166,7 @@ fn names(lua: &str, a: &Assets) -> Vec<String> {
                         Want::Flag => a.flag_names.contains(&n) || n == "solid",
                         Want::Sfx => a.sound.sfx.contains_key(&n),
                         Want::Song => a.sound.songs.contains_key(&n),
+                        Want::Font => a.font_names.contains_key(&n) || n == "builtin",
                     };
                     if !ok {
                         let (what, pool): (&str, Vec<&String>) = match w {
@@ -173,6 +177,7 @@ fn names(lua: &str, a: &Assets) -> Vec<String> {
                             Want::Flag => ("tile flag", a.flag_names.iter().collect()),
                             Want::Sfx => ("sfx", a.sound.sfx.keys().collect()),
                             Want::Song => ("song", a.sound.songs.keys().collect()),
+                            Want::Font => ("font", a.font_names.keys().collect()),
                         };
                         let hint = pool.iter().min_by_key(|c| (edit(c, &n), c.as_str())).filter(|c| edit(c, &n) <= 2.max(n.len() / 3)).map(|c| format!(" (did you mean `{c}`?)")).unwrap_or_default();
                         out.push(format!("main.lua:{}: {}…: no {what} called `{n}` in assets.cw{hint}", ln + 1, call));

@@ -42,7 +42,8 @@ playtest still passes (update `bot.txt` if the change needs it).
 
 ## Rules of the console
 
-- 320×240, 16×16 tiles, sprites up to 64 px, palettes of 15 colours + clear. Text is 8×8.
+- 320×240, 16×16 tiles, sprites up to 64 px, palettes of 15 colours + clear. Text is 8×8 unless the cart
+  declares its own `font` in assets.cw (then `font("name")` / `text(..., {font=})`).
 - No files, clock, network or `require`: the game is `main.lua` + `assets.cw`. `rnd()` is seeded,
   so a run with the same inputs and seed is identical everywhere.
 - A runaway loop becomes a readable error on screen, not a hang. Every error names its line.

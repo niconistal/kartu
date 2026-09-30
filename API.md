@@ -33,8 +33,9 @@ With the camera at (0,0), which it is until you call it, world = screen.
 | call | what |
 |---|---|
 | `spr(name, x, y [, {fx=bool, fy=bool, pal="palname", layer=0..3, screen=bool}])` | queue a sprite or clip by name at its **top-left** corner (world coords; `screen=true` ignores the camera). Coords are floored; sprites partly or fully off screen are clipped (fine to draw at negative x). `layer` = drawn just after BG layer N (default 3 = in front of every BG layer). Within one layer, later calls draw on top. Max 128 sprites/frame; extras are dropped (`check` warns). |
-| `text(str, x, y [, col or opts])` → `w, h` | 8×8 monospace ASCII in **screen** coords, drawn on top of **everything**. Lines are 10 px apart; `\n` starts a new line. Returns the block's size in px. opts: `col=`, `align="left"/"center"/"right"` (x is the left edge / centre / right edge; each line aligned), `wrap=px` (word-wrap to that width), `bg=col` (box behind the block), `pad=2` (box margin), `shadow=col` (1 px drop shadow), `scale=1..4` (big text: 2 = 16 px glyphs). |
-| `textw(str [, scale])` | width in px of the widest line (`#str*8` at scale 1). |
+| `text(str, x, y [, col or opts])` → `w, h` | text in **screen** coords, drawn on top of **everything**: the built-in 8×8 monospace ASCII font (lines 10 px apart) unless a cart font is chosen. `\n` starts a new line. Returns the block's size in px. opts: `col=`, `align="left"/"center"/"right"` (x is the left edge / centre / right edge; each line aligned), `wrap=px` (word-wrap to that width, by real glyph widths), `bg=col` (box behind the block), `pad=2` (box margin), `shadow=col` (1 px drop shadow), `scale=1..4` (big text: 2 = 16 px glyphs), `font="name"` (a `font` from assets.cw; `"builtin"` = the 8×8 one). |
+| `textw(str [, scale] [, font])` | width in px of the widest line (`#str*8` at scale 1 in the built-in font). Also `textw(str, "font")` and `textw(str, {scale=, font=})`. Uses the `font()` default unless one is named. |
+| `font([name])` | default font for later `text`/`textw` calls (persists across frames); `font()` = the built-in 8×8. Returns the previous default's name (nil = built-in). Fonts are declared in assets.cw (`font` blocks, below). |
 | `rect(x, y, w, h, col [, {line=bool, layer=0..3, screen=bool}])` | filled box (`line=true`: 1 px outline). World coords, layered and ordered like sprites (default layer 3, counts toward the 128). |
 | `backdrop("#rrggbb")` | colour behind all layers. |
 | `pal(palname, entry, "#rrggbb")` | recolour one palette entry (its char, or 0..15) for every sprite and tile using that palette, from now on. There is no way to read a colour back: keep the originals in Lua if you plan to fade. |
@@ -212,11 +213,36 @@ Markers put monsters, pickups and the start point in the map picture itself; rea
 `spawns("level1")`, e.g. `local h = spawns("level1", "hero")[1]; hero = {x=h.x, y=h.y, spr="hero"}`.
 - `.` means an empty cell unless the legend redefines it; `<char> empty` makes another empty char.
 - Max 16 palettes, 16 entries each. A palette can be used by both sprites and tiles.
-- **Names:** palettes have their own namespace (`palette car` + `sprite car` is fine).
+- **Names:** palettes (and fonts) have their own namespace (`palette car` + `sprite car` is fine).
   Sprites, clips, tiles and maps share one (a sprite and a tile can't both be `grass`). No spaces in names.
 - Declare palettes before the sprites that use them, and sprites before a `from=` that copies them.
   Clips and maps may name things declared later.
 - Every error names the line. `kartu check` lists all of them in one go.
+
+### Fonts
+Optional: `text` uses the built-in 8×8 font otherwise. A `font` block is a 1-colour bitmap font:
+one `glyph` per character, each followed by exactly `height` rows of `#` (ink) and `.` (empty). A
+glyph's width is its row length, so fonts can be proportional; `text` colours the ink (`col=`, `shadow=`).
+```text
+font story height=9 spacing=1       -- height= rows (required, ≤32); spacing= px after each glyph (1)
+glyph A                             -- then exactly `height` rows (grid rows: no comments on them)
+..#..
+.#.#.
+#...#
+#####
+#...#
+#...#
+#...#
+.....
+.....
+glyph U+00E9                        -- `glyph` + one char, `space`, or U+XXXX (é); its rows follow
+```
+More header options: `space=N` (width of ' ' when there is no space glyph; default height/2 +
+spacing), `line=N` (px from one line's top to the next; default height + 2), `fixed=N`
+(monospace: every glyph advances N px whatever its width). Glyphs are ≤32 px wide. A char the font
+lacks falls back to the built-in 8×8 glyph (8 px wide), or to the font's `?` outside ASCII. Fonts
+have their own namespace; `builtin` is reserved. Use: `font("story")` (the default from then on),
+`text(s, x, y, {font = "story"})`, `textw(s, "story")`.
 
 ### Importing art
 Bring your own image generator: `kartu art import` turns any PNG into assets.cw text.

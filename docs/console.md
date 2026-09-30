@@ -61,7 +61,8 @@ needs.
 - **128 sprites** per frame, up to 64 px, flip X/Y, palette override, drawn just after the
   layer of your choice; later calls draw on top within a layer.
 - **Text**: 8 × 8 glyphs from the public-domain font8x8, drawn on top of everything, with
-  alignment, wrap, boxes, shadow and integer scale.
+  alignment, wrap, boxes, shadow and integer scale. Carts can add their own bitmap fonts
+  (`font` blocks in assets.cw: proportional or monospace, up to 32 px tall).
 
 There are no line, circle or pixel primitives, no per-line scroll and no 8 × 8 tiles yet.
 

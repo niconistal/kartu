@@ -285,7 +285,19 @@ impl Console {
             })?,
         )?;
 
-        // text(str, x, y [, col | {col=, align="left|center|right", wrap=px, bg=, shadow=, scale=1..4, pad=}])
+        // font(name) -> previous default font name (nil = built-in). font() / font(nil) = built-in.
+        let st = self.st.clone();
+        g.set(
+            "font",
+            lua.create_function(move |_, name: Option<String>| {
+                let mut s = st.borrow_mut();
+                let prev = s.font.map(|f| s.assets.fonts[f as usize].name.clone());
+                s.font = font_ix(&s.assets, name.as_deref(), "font")?;
+                Ok(prev)
+            })?,
+        )?;
+
+        // text(str, x, y [, col | {col=, align="left|center|right", wrap=px, bg=, shadow=, scale=1..4, pad=, font=}])
         //   -> w, h of the block. Always screen space, always on top.
         let st = self.st.clone();
         g.set(
@@ -293,6 +305,7 @@ impl Console {
             lua.create_function(move |_, (t, x, y, opt): (String, f64, f64, Option<Value>)| {
                 let mut s = st.borrow_mut();
                 let (mut col, mut align, mut wrap, mut bg, mut shadow, mut scale, mut pad) = (gfx::SPR_BANK + 1, "left".to_string(), 0, None, None, 1, 2);
+                let mut font = s.font;
                 match opt {
                     None | Some(Value::Nil) => {}
                     Some(Value::Table(o)) => {
@@ -314,12 +327,26 @@ impl Console {
                         if let Some(c) = o.get::<Option<Value>>("shadow")? {
                             shadow = Some(colour(&s.assets, &c, "text")?);
                         }
+                        if let Some(f) = o.get::<Option<String>>("font")? {
+                            font = font_ix(&s.assets, Some(&f), "text")?;
+                        }
                     }
                     Some(c) => col = colour(&s.assets, &c, "text")?,
                 }
-                let lines = layout(&t, wrap, scale);
-                let w = lines.iter().map(|l| l.chars().count() as i32 * 8 * scale).max().unwrap_or(0);
-                let h = lines.len() as i32 * LINE_H * scale - 2 * scale;
+                let fnt = font.map(|f| &s.assets.fonts[f as usize]);
+                let lw_of = |l: &str| match fnt {
+                    None => l.chars().count() as i32 * 8 * scale,
+                    Some(f) => f.line_w(l) * scale,
+                };
+                let lines = match fnt {
+                    None => layout(&t, wrap, scale),
+                    Some(f) => layout_px(&t, wrap, &|c| f.char_w(c) * scale),
+                };
+                let w = lines.iter().map(|l| lw_of(l)).max().unwrap_or(0);
+                let h = match fnt {
+                    None => lines.len() as i32 * LINE_H * scale - 2 * scale,
+                    Some(f) => (lines.len() as i32 * f.line - (f.line - f.height as i32)) * scale,
+                };
                 let (x, y) = (x.floor() as i32, y.floor() as i32);
                 let left = match align.as_str() {
                     "center" => x - w / 2,
@@ -329,7 +356,7 @@ impl Console {
                 let placed = lines
                     .into_iter()
                     .map(|l| {
-                        let lw = l.chars().count() as i32 * 8 * scale;
+                        let lw = lw_of(&l);
                         let lx = match align.as_str() {
                             "center" => x - lw / 2,
                             "right" => x - lw,
@@ -339,17 +366,44 @@ impl Console {
                     })
                     .collect();
                 let bgbox = bg.map(|c| (left - pad, y - pad, w + 2 * pad, h + 2 * pad, c));
-                s.gfx.texts.push(TextCmd { lines: placed, y, col, scale, shadow, bg: bgbox });
+                s.gfx.texts.push(TextCmd { lines: placed, y, col, scale, shadow, bg: bgbox, font });
                 Ok((w, h))
             })?,
         )?;
 
-        // textw(str [, scale]) -> width in px of the widest line
+        // textw(str [, scale] [, font]) or textw(str, {scale=, font=}) -> width in px of the
+        // widest line, in the default font unless one is named
+        let st = self.st.clone();
         g.set(
             "textw",
-            lua.create_function(|_, (t, scale): (String, Option<i32>)| {
-                let k = scale.unwrap_or(1).clamp(1, 4);
-                Ok(t.split('\n').map(|l| l.chars().count() as i32 * 8 * k).max().unwrap_or(0))
+            lua.create_function(move |_, (t, a2, a3): (String, Value, Option<String>)| {
+                let s = st.borrow();
+                let mut font = s.font;
+                let mut scale = 1;
+                match a2 {
+                    Value::Nil => {}
+                    Value::Integer(n) => scale = n as i32,
+                    Value::Number(n) => scale = n as i32,
+                    Value::String(f) => font = font_ix(&s.assets, Some(&f.to_str()?), "textw")?,
+                    Value::Table(o) => {
+                        scale = o.get::<Option<i32>>("scale")?.unwrap_or(1);
+                        if let Some(f) = o.get::<Option<String>>("font")? {
+                            font = font_ix(&s.assets, Some(&f), "textw")?;
+                        }
+                    }
+                    _ => return rt("textw(str [, scale] [, font]) or textw(str, {scale=, font=})"),
+                }
+                if let Some(f) = a3 {
+                    font = font_ix(&s.assets, Some(&f), "textw")?;
+                }
+                let k = scale.clamp(1, 4);
+                Ok(match font {
+                    None => t.split('\n').map(|l| l.chars().count() as i32 * 8 * k).max().unwrap_or(0),
+                    Some(f) => {
+                        let f = &s.assets.fonts[f as usize];
+                        t.split('\n').map(|l| f.line_w(l) * k).max().unwrap_or(0)
+                    }
+                })
             })?,
         )?;
 
@@ -420,6 +474,7 @@ impl Console {
                     Some(Ref::Tile(_)) => Some("tile"),
                     Some(Ref::Map(_)) => Some("map"),
                     None if s.assets.pal_names.contains_key(&name) => Some("palette"),
+                    None if s.assets.font_names.contains_key(&name) => Some("font"),
                     None => None,
                 })
             })?,
@@ -499,6 +554,21 @@ impl Console {
     }
 }
 
+/// Font name → index; None / "builtin" = the built-in 8×8 font.
+fn font_ix(a: &Assets, name: Option<&str>, what: &str) -> mlua::Result<Option<u16>> {
+    match name {
+        None | Some("builtin") => Ok(None),
+        Some(n) => match a.font_names.get(n) {
+            Some(&f) => Ok(Some(f)),
+            None => {
+                let mut have: Vec<&str> = a.fonts.iter().map(|f| f.name.as_str()).collect();
+                have.push("builtin");
+                rt(format!("{what}: no font called `{n}` (fonts: {})", have.join(", ")))
+            }
+        },
+    }
+}
+
 type Boxed = ((i32, i32, i32, i32), Option<String>);
 
 /// `(o [, flag])` or `(x, y [, w, h] [, flag])`.
@@ -541,6 +611,40 @@ fn layout(t: &str, wrap: i32, scale: i32) -> Vec<String> {
                 let rest: String = line.chars().skip(cols).collect();
                 out.push(cut);
                 line = rest;
+            }
+        }
+        out.push(line);
+    }
+    out
+}
+
+/// `layout` for proportional fonts: split on `\n`, word-wrap so no line is wider than `wrap`
+/// px (0 = no wrap) using each char's advance. Words longer than a line are cut.
+fn layout_px(t: &str, wrap: i32, cw: &dyn Fn(char) -> i32) -> Vec<String> {
+    let wrap = if wrap > 0 { wrap } else { i32::MAX };
+    let width = |s: &str| s.chars().map(cw).sum::<i32>();
+    let mut out = vec![];
+    for para in t.split('\n') {
+        let mut line = String::new();
+        let mut lw = 0;
+        for w in para.split(' ') {
+            let ww = width(w);
+            if !line.is_empty() && lw + cw(' ') + ww > wrap {
+                out.push(std::mem::take(&mut line));
+                lw = 0;
+            }
+            if !line.is_empty() {
+                line.push(' ');
+                lw += cw(' ');
+            }
+            for c in w.chars() {
+                let c_w = cw(c);
+                if lw + c_w > wrap && !line.is_empty() {
+                    out.push(std::mem::take(&mut line));
+                    lw = 0;
+                }
+                line.push(c);
+                lw += c_w;
             }
         }
         out.push(line);
@@ -629,6 +733,38 @@ mod tests {
               rect(0, 0, 10, 10, "w", {line = true})
             end"#);
         assert_eq!(l, ["0 0", "30 30 12", "48 18", "64 24 64"]);
+    }
+
+    #[test]
+    fn fonts_in_text_and_textw() {
+        let mut a = room();
+        // 3 px tall proportional font: `i` 1 px wide, `m` 5 px, 1 px spacing, space = 2
+        a.push_str("font thin height=3 space=2\nglyph i\n#\n#\n#\nglyph m\n#####\n#.#.#\n#.#.#\nglyph ?\n##\n.#\n#.\n");
+        let mut c = Console::new(&a, r#"
+            function update()
+              log(textw("im"), textw("im", "thin"), textw("im", 2, "thin"), textw("mm\nimi", {font = "thin"}))
+              log(text("im mi", 0, 0, {font = "thin"}))            -- 2+6+2+6+2 = 18 wide, 3 tall
+              log(text("m\nm", 0, 0, {font = "thin", scale = 2}))  -- line = 5: (2*5-2)*2 = 16
+              log(font("thin"), textw("i"), font(), textw("i"), has("thin"))
+              font("thin")
+              log(text("mmm mmm mmm", 0, 0, {wrap = 40}))          -- 18 + 2 + 18 = 38 fits, the third wraps
+              log(textw("é"), textw("Z"), text("ok", 0, 0, {font = "builtin"}))
+            end"#, 1).unwrap_or_else(|e| panic!("{e}"));
+        c.step(0);
+        assert!(c.error.is_none(), "{:?}", c.error);
+        assert_eq!(c.take_logs(), ["16 8 16 12", "18 3", "12 16", "nil 2 thin 8 font", "38 8", "3 8 16 8"]);
+        // pixels: `m` at x=100 in white, its 1 px shadow in black; row 1 of `m` is #.#.#
+        let mut c = Console::new(&a, r#"function draw() text("m", 100, 50, {font = "thin", col = "w", shadow = "k"}) end"#, 1).unwrap();
+        c.step(0);
+        let fb = &c.st.borrow().gfx.fb;
+        let px = |x: usize, y: usize| fb[y * crate::gfx::W + x];
+        let (k, w) = (crate::gfx::SPR_BANK + 1, crate::gfx::SPR_BANK + 2);
+        assert_eq!([px(100, 50), px(104, 50), px(105, 50)], [w, w, 0]);
+        assert_eq!([px(100, 51), px(101, 51), px(102, 51), px(105, 51)], [w, k, w, k]);
+        assert_eq!([px(101, 53), px(100, 53)], [k, 0]);
+        let mut c = Console::new(&a, "function update() font('nope') end", 1).unwrap();
+        c.step(0);
+        assert!(c.error.as_deref().unwrap_or("").contains("no font called `nope` (fonts: thin, builtin)"), "{:?}", c.error);
     }
 
     #[test]

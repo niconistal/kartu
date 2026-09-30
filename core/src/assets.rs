@@ -68,6 +68,63 @@ pub struct Map {
     pub spawns: Vec<Spawn>,
 }
 
+/// One glyph of a cart font: `w`×font height pixels, true = ink.
+#[derive(Clone, Debug)]
+pub struct Glyph {
+    pub w: usize,
+    pub pix: Vec<bool>,
+}
+
+/// A cart font from a `font NAME height=H ...` block. Glyphs are 1-bit (ink or not); `text`
+/// colours them, like the built-in 8×8 font.
+#[derive(Clone, Debug)]
+pub struct Font {
+    pub name: String,
+    /// glyph rows
+    pub height: usize,
+    /// empty px after each glyph (proportional fonts)
+    pub spacing: i32,
+    /// px from one line's top to the next (default height + 2)
+    pub line: i32,
+    /// advance of a space that has no glyph
+    pub space: i32,
+    /// every glyph advances exactly this many px (a monospace font), else glyph width + spacing
+    pub fixed: Option<i32>,
+    pub glyphs: HashMap<char, Glyph>,
+}
+
+impl Font {
+    /// Horizontal advance of `c`, or None when the font has no glyph for it.
+    pub fn advance(&self, c: char) -> Option<i32> {
+        match (self.glyphs.get(&c), self.fixed) {
+            (_, Some(f)) if self.glyphs.contains_key(&c) || c == ' ' => Some(f),
+            (Some(g), None) => Some(g.w as i32 + self.spacing),
+            (None, None) if c == ' ' => Some(self.space),
+            _ => None,
+        }
+    }
+
+    /// Advance as drawn, fallbacks included: the font's glyph, else the built-in 8×8 glyph
+    /// (8 px) for ASCII, else the font's `?`.
+    pub fn char_w(&self, c: char) -> i32 {
+        if let Some(a) = self.advance(c) {
+            return a;
+        }
+        if !(32..127).contains(&(c as u32)) {
+            if let Some(a) = self.advance('?') {
+                return a;
+            }
+        }
+        8
+    }
+
+    /// Width of one line in px at scale 1 (the gap after the last glyph included, as with
+    /// the built-in font's 8 px cells).
+    pub fn line_w(&self, s: &str) -> i32 {
+        s.chars().map(|c| self.char_w(c)).sum()
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Ref {
     Sprite(u16),
@@ -87,6 +144,9 @@ pub struct Assets {
     pub names: HashMap<String, Ref>,
     /// palettes have their own, so `palette car` + `sprite car` is fine
     pub pal_names: HashMap<String, u8>,
+    /// cart fonts (`font` blocks), with their own namespace
+    pub fonts: Vec<Font>,
+    pub font_names: HashMap<String, u16>,
     /// tile flag names in first-use order (max 16)
     pub flag_names: Vec<String>,
     /// instruments, sound effects and songs (built-in presets + the cart's own)
@@ -126,7 +186,7 @@ fn strip_comment(l: &str) -> &str {
     }
 }
 
-const KEYWORDS: [&str; 8] = ["palette", "sprite", "tile", "clip", "map", "instrument", "sfx", "song"];
+const KEYWORDS: [&str; 9] = ["palette", "sprite", "tile", "clip", "map", "instrument", "sfx", "song", "font"];
 
 /// A line that starts a new block (`sprite cat 8x8 ...`), used to resync after an error.
 pub(crate) fn is_header(l: &str) -> bool {
@@ -500,9 +560,10 @@ impl Assets {
             "song" => {
                 a.sound.song_def(lines, i).map_err(|(l, e)| msg(l, e))?;
             }
+            "font" => a.font_block(lines, i, errs)?,
             other => {
                 *i += 1;
-                return Err(msg(start, format!("unknown keyword `{other}` (palette, sprite, tile, clip, map, instrument, sfx, song)")));
+                return Err(msg(start, format!("unknown keyword `{other}` (palette, sprite, tile, clip, map, instrument, sfx, song, font)")));
             }
         }
         Ok(())
@@ -544,6 +605,121 @@ impl Assets {
             }
         }
         Ok(out)
+    }
+
+    /// `font NAME height=H [spacing=1] [space=N] [line=N] [fixed=N]`, then `glyph <c>` headers,
+    /// each followed by exactly H rows of `#` (ink) and `.` (empty); a glyph's width is its row
+    /// length. `<c>` is one character, `space`, or `U+00E9`.
+    fn font_block(&mut self, lines: &[&str], i: &mut usize, errs: &mut Vec<String>) -> Result<(), String> {
+        let start = *i;
+        let l = strip_comment(lines[start]).trim();
+        let words: Vec<&str> = l.split_whitespace().collect();
+        let name = words.get(1).ok_or_else(|| msg(start, "font needs a name"))?.to_string();
+        *i += 1;
+        if name == "builtin" {
+            return Err(msg(start, "`builtin` is the name of the built-in 8x8 font; pick another"));
+        }
+        if self.font_names.contains_key(&name) {
+            return Err(msg(start, format!("font `{name}` is declared twice")));
+        }
+        for w in &words[2..] {
+            let k = w.split('=').next().unwrap_or("");
+            if !w.contains('=') || !["height", "spacing", "space", "line", "fixed"].contains(&k) {
+                return Err(msg(start, format!("font `{name}`: unknown setting `{w}` (height=, spacing=, space=, line=, fixed=)")));
+            }
+        }
+        let num = |k: &str, lo: i32, hi: i32| -> Result<Option<i32>, String> {
+            match kv(&words, k) {
+                None => Ok(None),
+                Some(v) => match v.parse::<i32>() {
+                    Ok(n) if (lo..=hi).contains(&n) => Ok(Some(n)),
+                    _ => Err(msg(start, format!("font `{name}`: {k}=`{v}` should be a number {lo}..{hi}"))),
+                },
+            }
+        };
+        let height = num("height", 1, 32)?.ok_or_else(|| msg(start, format!("font `{name}` needs height=<rows> (1..32)")))? as usize;
+        let spacing = num("spacing", 0, 8)?.unwrap_or(1);
+        let fixed = num("fixed", 1, 32)?;
+        let line = num("line", 1, 64)?.unwrap_or(height as i32 + 2);
+        let space = num("space", 0, 32)?.unwrap_or(fixed.unwrap_or((height as i32 / 2).max(1) + spacing));
+        let mut f = Font { name: name.clone(), height, spacing, line, space, fixed, glyphs: HashMap::new() };
+        loop {
+            // skip blank and comment lines between glyphs
+            while *i < lines.len() && strip_comment(lines[*i]).trim().is_empty() {
+                *i += 1;
+            }
+            let Some(gl) = lines.get(*i) else { break };
+            let gw: Vec<&str> = strip_comment(gl).split_whitespace().collect();
+            if gw.first() != Some(&"glyph") {
+                break;
+            }
+            let gline = *i;
+            *i += 1;
+            let tok = gw.get(1).copied().unwrap_or("");
+            let ch = if tok == "space" {
+                Some(' ')
+            } else if let Some(h) = tok.strip_prefix("U+").or_else(|| tok.strip_prefix("u+")) {
+                u32::from_str_radix(h, 16).ok().and_then(char::from_u32)
+            } else {
+                let mut cs = tok.chars();
+                match (cs.next(), cs.next()) {
+                    (Some(c), None) => Some(c),
+                    _ => None,
+                }
+            };
+            let Some(ch) = ch else {
+                errs.push(msg(gline, format!("font `{name}`: `glyph {tok}` wants one character, `space` or U+XXXX")));
+                // skip the rows so they don't read as a new block
+                *i += height.min(lines.len() - *i);
+                continue;
+            };
+            let mut pix = Vec::with_capacity(height * 8);
+            let mut w = 0;
+            let mut ok = true;
+            for r in 0..height {
+                let row = lines.get(*i).map(|s| s.trim()).unwrap_or("");
+                if *i >= lines.len() || is_header(row) || row.starts_with("glyph") || row.is_empty() {
+                    errs.push(msg(*i, format!("font `{name}` glyph `{tok}` has only {r} rows, expected {height}")));
+                    ok = false;
+                    break;
+                }
+                *i += 1;
+                let n = row.chars().count();
+                if r == 0 {
+                    w = n;
+                } else if n != w {
+                    errs.push(msg(*i - 1, format!("font `{name}` glyph `{tok}` row {} is {n} wide, the first row is {w}", r + 1)));
+                    ok = false;
+                }
+                for c in row.chars() {
+                    match c {
+                        '#' => pix.push(true),
+                        '.' => pix.push(false),
+                        _ => {
+                            errs.push(msg(*i - 1, format!("font `{name}` glyph `{tok}`: rows are `#` (ink) and `.` (empty), not `{c}`")));
+                            ok = false;
+                            break;
+                        }
+                    }
+                }
+            }
+            if !ok {
+                continue;
+            }
+            if w > 32 {
+                errs.push(msg(gline, format!("font `{name}` glyph `{tok}` is {w} px wide (max 32)")));
+                continue;
+            }
+            if f.glyphs.insert(ch, Glyph { w, pix }).is_some() {
+                errs.push(msg(gline, format!("font `{name}`: glyph `{tok}` is defined twice")));
+            }
+        }
+        if f.glyphs.is_empty() {
+            errs.push(msg(start, format!("font `{name}` has no glyphs (`glyph A` then {height} rows of # and .)")));
+        }
+        self.font_names.insert(name, self.fonts.len() as u16);
+        self.fonts.push(f);
+        Ok(())
     }
 
     pub fn flag_bit(&self, name: &str) -> Option<u16> {
@@ -611,6 +787,27 @@ mod tests {
         assert_eq!((r.w, r.h, r.pal), (2, 3, 1));
         // rows of the clockwise turn: (.k) (.r) (k.)
         assert_eq!(r.pix, vec![0, 1, 0, 2, 1, 0]);
+    }
+
+    #[test]
+    fn fonts() {
+        let src = "palette p\n . clear\n k #000000\nfont tiny height=3 spacing=1 -- a comment\nglyph A\n.#.\n#.#\n###\n\nglyph space\n..\n..\n..\nglyph U+00E9\n#\n#\n#\nfont mono height=2 fixed=6\nglyph i\n#\n#\nsprite s 1x1 pal=p\nk\n";
+        let a = Assets::parse(src).unwrap();
+        let f = &a.fonts[a.font_names["tiny"] as usize];
+        assert_eq!((f.height, f.line, f.glyphs.len()), (3, 5, 3));
+        assert_eq!(f.glyphs[&'A'].pix, vec![false, true, false, true, false, true, true, true, true]);
+        assert_eq!((f.char_w('A'), f.char_w(' '), f.char_w('é'), f.char_w('Z'), f.line_w("A A")), (4, 3, 2, 8, 11));
+        let m = &a.fonts[1];
+        assert_eq!((m.char_w('i'), m.char_w(' '), m.char_w('x')), (6, 6, 8));
+        assert_eq!(a.sprites.len(), 1);
+    }
+
+    #[test]
+    fn font_errors() {
+        let src = "font f\nglyph A\n#\nfont g height=2\nglyph AB\n#\n#\nglyph B\n#.\n#\nglyph C\n#x\n##\nglyph D\n#\nfont h height=1 wat=3\nglyph x\n#\n";
+        let (_, errs) = Assets::parse_all(src);
+        let lines: Vec<&str> = errs.iter().map(|e| e.split(": ").next().unwrap()).collect();
+        assert_eq!(lines, ["assets.cw:1", "assets.cw:4", "assets.cw:5", "assets.cw:10", "assets.cw:12", "assets.cw:16", "assets.cw:16"], "{errs:#?}");
     }
 
     #[test]
