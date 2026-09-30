@@ -34,4 +34,25 @@ while read -r c; do
   echo "$n" > "dist/miyoo/Roms/KARTU/${t:-$n}.kartu"
 done < dist/miyoo/carts.txt
 ls dist/miyoo/Roms/KARTU
+
+# Allium: the same player and carts as Apps/Kartu.pak, plus a Games-list folder Roms/Kartu where
+# each cart is a <Title>.port folder. Allium runs .port folders with its built-in "Native" core, so
+# nothing in Allium's own config has to change. Box art is the cart's own frame 90.
+al=dist/allium
+rm -rf $al && mkdir -p $al/Apps $al/Roms/Kartu/Imgs
+cp -r $app $al/Apps/Kartu.pak
+rm -f $al/Apps/Kartu.pak/launch.sh
+cp miyoo/allium/launch.sh miyoo/allium/play.sh $al/Apps/Kartu.pak/
+cw=target/release/kartu; [ -x $cw ] || cw=kartu
+while read -r c; do
+  n=$(basename "$c"); [ "$n" = bench ] && continue
+  t=$(sed -n '1s/^-- title: *//p' "$c"/main.lua | sed 's/ *([^)]*) *$//; s#[/:]# #g')
+  t=${t:-$n}
+  mkdir -p "$al/Roms/Kartu/$t.port"
+  printf '#!/bin/sh\nexec /mnt/SDCARD/Apps/Kartu.pak/play.sh %s\n' "$n" > "$al/Roms/Kartu/$t.port/launch.sh"
+  chmod +x "$al/Roms/Kartu/$t.port/launch.sh"
+  $cw run "$c" --frames 90 --shot "$al/Roms/Kartu/Imgs/$t.png" --scale 1 >/dev/null 2>&1 ||
+    echo "no box art for $n"
+done < dist/miyoo/carts.txt
+ls $al/Roms/Kartu
 file $app/kartu; ls -la $app

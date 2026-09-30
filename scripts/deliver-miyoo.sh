@@ -1,6 +1,7 @@
 #!/bin/bash
-# Install dist/miyoo/Kartu on the Miyoo (Onion OS) as an App, then run the P0 gate
-# benchmark on the device and fetch the numbers.
+# Install Kartu on the Miyoo, then (Onion only) run the P0 gate benchmark on the device and fetch
+# the numbers. Works out which OS the card runs: Allium (a .allium folder on the card, root login
+# with no password) gets dist/allium; Onion (onion/onion) gets dist/miyoo.
 #
 #   DEVICE_IP=192.168.x.y scripts/deliver-miyoo.sh   # device awake + on wifi
 #   (or once, in ~/.config/kartu/config.toml:  [device.miyoo]  ip = "192.168.x.y")
@@ -13,9 +14,8 @@ set -u
 cd "$(dirname "$0")/.."
 IP=${DEVICE_IP:-$(target/release/kartu config get device.miyoo.ip 2>/dev/null || kartu config get device.miyoo.ip 2>/dev/null)}
 : "${IP:?set DEVICE_IP (or [device.miyoo] ip in ~/.config/kartu/config.toml) to the Miyoo IP address}"
-USER=${DEVICE_USER:-onion}
-PASS=${DEVICE_PASS:-onion}
-APP=/mnt/SDCARD/App/Kartu
+USER=${DEVICE_USER:-}
+PASS=${DEVICE_PASS:-}
 SECS=${BENCH_SECS:-20}
 say() { echo "[kartu] $(date +%H:%M:%S) $*"; }
 SSHO=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 -o ServerAliveInterval=5)
@@ -24,11 +24,37 @@ dev() { SSHPASS=$PASS sshpass -e ssh "${SSHO[@]}" "$USER@$IP" "$@"; }
 [ -x dist/miyoo/Kartu/kartu ] || { say "build first: scripts/build-miyoo.sh"; exit 1; }
 WAIT_MIN=${WAIT_MIN:-0}
 deadline=$(( $(date +%s) + WAIT_MIN * 60 ))
-until ping -c2 -W3 "$IP" >/dev/null 2>&1 && dev true 2>/dev/null; do
+login() {  # Allium first (root, empty password), then Onion (onion/onion)
+  if [ -n "$USER" ]; then dev true 2>/dev/null; return; fi
+  for cred in root: onion:onion; do
+    USER=${cred%%:*} PASS=${cred#*:}
+    dev true 2>/dev/null && return 0
+  done
+  USER= PASS=; return 1
+}
+until ping -c2 -W3 "$IP" >/dev/null 2>&1 && login; do
   [ "$(date +%s)" -lt "$deadline" ] || { say "device $IP unreachable — wake it and join wifi"; exit 1; }
   sleep 20
 done
 say "device up: $(dev 'uname -m; cat /proc/cpuinfo | grep -m1 -i "model name\|Processor"' | tr '\n' ' ')"
+
+if dev '[ -d /mnt/SDCARD/.allium ]'; then
+  [ -x dist/allium/Apps/Kartu.pak/kartu ] || { say "build first: scripts/build-miyoo.sh"; exit 1; }
+  APP=/mnt/SDCARD/Apps/Kartu.pak
+  say "Allium $(dev 'cat /mnt/SDCARD/.allium/version.txt' | tr -d '\r\n')"
+  for try in 1 2 3 4; do
+    # Apps/Kartu.pak (player, carts, menu) + Roms/Kartu/<Title>.port (the Games list) + box art.
+    # Old .port folders go first so renamed carts don't linger.
+    if dev "rm -rf /mnt/SDCARD/Roms/Kartu/*.port /mnt/SDCARD/Roms/Kartu/Imgs" &&
+       tar -C dist/allium -cf - Apps Roms | dev "tar -C /mnt/SDCARD -xf - && sync"; then ok=1; break; fi
+    ok=0; say "copy failed (try $try), retrying"; sleep $((try * 4))
+  done
+  [ "$ok" = 1 ] || { say "copy failed"; exit 1; }
+  say "installed at $APP ($(dev "$APP/kartu version"))"
+  say "open Apps → Kartu for the cart menu (the bench is its last entry), or Games → Kartu"
+  exit 0
+fi
+APP=/mnt/SDCARD/App/Kartu
 
 for try in 1 2 3 4; do
   # App/Kartu (player, carts, menu) + the Games-tab console (Emu/KARTU, Roms/KARTU/*.kartu).
