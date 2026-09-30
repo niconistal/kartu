@@ -42,7 +42,7 @@ al=dist/allium
 rm -rf $al && mkdir -p $al/Apps $al/Roms/Kartu/Imgs
 cp -r $app $al/Apps/Kartu.pak
 rm -f $al/Apps/Kartu.pak/launch.sh
-cp miyoo/allium/launch.sh miyoo/allium/play.sh $al/Apps/Kartu.pak/
+cp miyoo/allium/launch.sh miyoo/allium/play.sh miyoo/allium/sound.sh $al/Apps/Kartu.pak/
 cw=target/release/kartu; [ -x $cw ] || cw=kartu
 while read -r c; do
   n=$(basename "$c"); [ "$n" = bench ] && continue

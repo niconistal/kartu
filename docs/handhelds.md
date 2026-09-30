@@ -54,6 +54,16 @@ mono straight to `/dev/dsp` (the SigmaStar driver takes it as is), and Onion res
 `KARTU_OSS_DEBUG=N` logs the first N writes. `kartu.log` on the device shows the audio line
 and dropped/error counts.
 
+Two SigmaStar quirks matter for the system volume. Opening `/dev/dsp` re-creates the AO device
+**unmuted at 0 dB**, and a restarted `audioserver` comes back at −3 dB unmuted — neither knows
+the volume the user set. So the launcher passes the level in `KARTU_AO_VOLUME_DB` and the player
+writes it to `/proc/mi_modules/mi_ao/mi_ao0` (`KARTU_AO_CTL` to override) before the first
+sample plays; the launcher puts the level back after `audioserver` returns. And since every
+teardown/creation of the device toggles the speaker amp (a loud pop even when muted), a muted
+system is left alone: `audioserver` keeps running and the player gets `--mute`. On Allium this
+is `miyoo/allium/sound.sh` (`/tmp/volume` holds the dB, −60 = muted); sound turned up while a
+muted game runs starts on the next launch.
+
 ## Testing the framebuffer player without a device
 
 ```sh

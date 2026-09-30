@@ -2,6 +2,12 @@
 //! The Miyoo Mini's kernel exposes one; Onion's `audioserver` normally holds it, so launch.sh
 //! stops that first (Onion's own `stop_audioserver.sh`, which keeps the volume) and restarts it after.
 //!
+//! Opening `/dev/dsp` on the Miyoo re-creates the SigmaStar AO device **unmuted at 0 dB**, whatever
+//! the system volume was, so the launcher passes the current level in `KARTU_AO_VOLUME_DB` and we
+//! write it to the driver's control file (`KARTU_AO_CTL`, default `/proc/mi_modules/mi_ao/mi_ao0`)
+//! as soon as that file exists, before any sample plays. A muted system should not open us at all
+//! (`--mute`): every open/close of the device toggles the speaker amp, which pops.
+//!
 //! The synth makes `audio::PER_FRAME` samples of 24 kHz mono per frame. If the device wants
 //! another rate or stereo we resample linearly / duplicate. Writes never block the frame loop:
 //! what doesn't fit waits in `pending`, and `pending` is capped so a device clock that runs a
@@ -44,6 +50,22 @@ pub struct Oss {
     /// writes the driver refused with an error code (not just "full")
     pub errors: u64,
     debug: u32,
+    /// system volume (dB) still to be written to the driver's control file, and tries left
+    volume: Option<(i32, u32)>,
+}
+
+const AO_CTL: &str = "/proc/mi_modules/mi_ao/mi_ao0";
+
+/// Set the SigmaStar AO device's volume (both channels, unmuted) through its proc control file.
+/// `Ok(false)` = the file isn't there (yet).
+fn set_ao_volume(ctl: &str, db: i32) -> Result<bool, std::io::Error> {
+    if !std::path::Path::new(ctl).exists() {
+        return Ok(false);
+    }
+    for cmd in [format!("set_ao_volume 0 {db}dB"), format!("set_ao_volume 1 {db}dB"), "set_ao_mute 0".to_string()] {
+        std::fs::write(ctl, cmd)?;
+    }
+    Ok(true)
 }
 
 fn ioctl_int(fd: i32, req: u32, v: i32) -> Result<i32, std::io::Error> {
@@ -78,14 +100,62 @@ impl Oss {
         };
         // ~4 frames of backlog at most, on top of what the driver buffers
         let max_pending = (rate as usize * channels as usize) / 15;
-        let info = format!("audio {path} {rate} Hz {channels} ch s16 · driver buffer {space}");
+        let mut info = format!("audio {path} {rate} Hz {channels} ch s16 · driver buffer {space}");
         // Start with ~50 ms of silence queued: a cushion so one slow frame doesn't underrun (click).
         let pending = vec![0i16; (rate as usize / 20) * channels as usize];
-        Ok(Oss { f, rate, channels, phase: 0.0, last: 0, pending, max_pending, info, dropped: 0, errors: 0, debug: std::env::var("KARTU_OSS_DEBUG").map(|v| v.parse().unwrap_or(40)).unwrap_or(0) })
+        let mut o = Oss {
+            f,
+            rate,
+            channels,
+            phase: 0.0,
+            last: 0,
+            pending,
+            max_pending,
+            info: String::new(),
+            dropped: 0,
+            errors: 0,
+            debug: std::env::var("KARTU_OSS_DEBUG").map(|v| v.parse().unwrap_or(40)).unwrap_or(0),
+            volume: std::env::var("KARTU_AO_VOLUME_DB").ok().and_then(|v| v.trim().parse().ok()).map(|db| (db, 180)),
+        };
+        if let Some((db, _)) = o.volume {
+            info.push_str(&format!(" · volume {db} dB"));
+            // Usually the device exists right after open; if not, push() keeps trying for ~3 s.
+            o.apply_volume();
+        }
+        o.info = info;
+        Ok(o)
+    }
+
+    fn apply_volume(&mut self) {
+        let Some((db, tries)) = self.volume else { return };
+        let ctl = std::env::var("KARTU_AO_CTL").unwrap_or_else(|_| AO_CTL.into());
+        match set_ao_volume(&ctl, db) {
+            Ok(true) => self.volume = None,
+            Ok(false) if tries > 1 => self.volume = Some((db, tries - 1)),
+            Ok(false) => {
+                eprintln!("audio: {ctl} never appeared, volume {db} dB not applied");
+                self.volume = None;
+            }
+            Err(e) => {
+                eprintln!("audio: {ctl}: {e} (volume {db} dB not applied)");
+                self.volume = None;
+            }
+        }
     }
 
     /// One frame of 24 kHz mono from the synth.
     pub fn push(&mut self, src: &[i16]) {
+        if self.volume.is_some() {
+            self.apply_volume();
+        }
+        // Nothing audible until the system volume is on the device: it comes up at full blast.
+        let silence;
+        let src = if self.volume.is_some() {
+            silence = vec![0i16; src.len()];
+            &silence[..]
+        } else {
+            src
+        };
         if self.rate == RATE {
             for &s in src {
                 for _ in 0..self.channels {
