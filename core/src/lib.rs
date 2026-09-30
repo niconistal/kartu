@@ -179,6 +179,21 @@ impl Console {
         Ok(())
     }
 
+    /// Does the cart define `on_quit()`? Hosts that let the player close a game on purpose
+    /// (the handheld pause menu's SAVE & QUIT) call it first, so the cart can `save()`.
+    pub fn has_quit_hook(&self) -> bool {
+        self.error.is_none() && matches!(self.lua.globals().get::<Value>("on_quit"), Ok(Value::Function(_)))
+    }
+
+    /// Call the cart's `on_quit()` (one frame's instruction budget). A `save()` it makes is
+    /// picked up by [`Console::take_save`] as usual. Nothing happens if the cart has none.
+    pub fn quit_hook(&mut self) -> Result<(), String> {
+        if !self.has_quit_hook() {
+            return Ok(());
+        }
+        self.call("on_quit")
+    }
+
     /// Run one 1/60 s frame with the given button bits, then render it.
     pub fn step(&mut self, buttons: u16) {
         {
@@ -605,6 +620,22 @@ mod tests {
         let mut c = Console::new(a, "function update() while true do end end", 1).unwrap();
         c.step(0);
         assert!(c.error.as_deref().unwrap_or("").contains("budget"), "{:?}", c.error);
+    }
+
+    #[test]
+    fn quit_hook_saves() {
+        let a = "palette p\n . clear\n k #ffffff\n";
+        let mut c = Console::new(a, "n = 0\nfunction update() n = n + 1 end\nfunction on_quit() save('q' .. n) end", 1).unwrap();
+        assert!(c.has_quit_hook());
+        c.step(0);
+        c.step(0);
+        assert_eq!(c.take_save(), None);
+        c.quit_hook().unwrap();
+        assert_eq!(c.take_save().as_deref(), Some("q2"));
+        let mut plain = Console::new(a, "function update() end", 1).unwrap();
+        assert!(!plain.has_quit_hook());
+        plain.quit_hook().unwrap();
+        assert_eq!(plain.take_save(), None);
     }
 
     #[test]

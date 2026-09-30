@@ -3,7 +3,8 @@
 //! works on any fbdev Linux handheld.
 //!
 //! Keys (Miyoo Mini keycodes): d-pad, A B X Y, L R, START SELECT as the console's
-//! buttons; MENU quits; L2 toggles the perf HUD; R2 flips the picture 180°.
+//! buttons; MENU pauses (RESUME / SAVE & QUIT / QUIT; the menu cart quits at once); L2 toggles
+//! the perf HUD; R2 flips the picture 180°.
 //! Sound goes to /dev/dsp (OSS, see oss.rs); `--audio DEV` picks another, `--mute` none.
 
 use crate::cart;
@@ -260,7 +261,7 @@ const KEY_R2: u16 = 14;
 struct Input {
     devs: Vec<File>,
     pub bits: u16,
-    pub quit: bool,
+    pub menu: bool,
     pub toggles: Vec<u16>,
 }
 
@@ -276,7 +277,7 @@ impl Input {
                 }
             }
         }
-        Input { devs, bits: 0, quit: false, toggles: vec![] }
+        Input { devs, bits: 0, menu: false, toggles: vec![] }
     }
 
     fn poll(&mut self) {
@@ -298,7 +299,7 @@ impl Input {
                     }
                     if val == 1 && matches!(code, KEY_MENU | KEY_L2 | KEY_R2) {
                         if code == KEY_MENU {
-                            self.quit = true;
+                            self.menu = true;
                         }
                         self.toggles.push(code);
                     }
@@ -378,6 +379,11 @@ pub fn play(a: &[String]) -> Result<(), String> {
     let mut phase = 0; // bench: 0 gate, 1 stress
     let mut hud_text = String::new();
 
+    // MENU in a game pauses it: RESUME / SAVE & QUIT (carts with on_quit()) / QUIT. The menu
+    // cart (--pick-out) has nothing to pause, so MENU there quits as before.
+    let quick_quit = a.kv.contains_key("pick-out");
+    let mut paused: Option<usize> = None;
+    let mut pause_prev = 0u16;
     loop {
         input.poll();
         for t in input.toggles.drain(..) {
@@ -387,8 +393,75 @@ pub fn play(a: &[String]) -> Result<(), String> {
                 _ => {}
             }
         }
-        if input.quit || STOP.load(std::sync::atomic::Ordering::SeqCst) {
+        if STOP.load(std::sync::atomic::Ordering::SeqCst) {
             break;
+        }
+        if std::mem::take(&mut input.menu) {
+            if quick_quit || c.error.is_some() {
+                break;
+            }
+            paused = if paused.is_some() { None } else { Some(0) };
+            pause_prev = input.bits;
+        }
+        if let Some(sel) = paused {
+            let items: Vec<&str> =
+                if c.has_quit_hook() { vec!["RESUME", "SAVE & QUIT", "QUIT"] } else { vec!["RESUME", "QUIT"] };
+            let (bits, prev) = (input.bits, pause_prev);
+            let hit = move |b: u16| bits & (1 << b) != 0 && prev & (1 << b) == 0;
+            let mut sel = sel.min(items.len() - 1);
+            if hit(2) { sel = (sel + items.len() - 1) % items.len(); }
+            if hit(3) { sel = (sel + 1) % items.len(); }
+            pause_prev = bits;
+            paused = Some(sel);
+            if hit(5) {
+                paused = None; // B = resume
+            } else if hit(4) || hit(10) {
+                match items[sel] {
+                    "RESUME" => paused = None,
+                    "SAVE & QUIT" => {
+                        match c.quit_hook() {
+                            Ok(()) => println!("[kartu] on_quit() ran"),
+                            Err(e) => eprintln!("on_quit: {e}"),
+                        }
+                        if let Some(sv) = c.take_save() {
+                            match write_save(&save_path, &sv) {
+                                Ok(()) => println!("[kartu] saved {} bytes on quit", sv.len()),
+                                Err(e) => eprintln!("save.txt: {e}"),
+                            }
+                        }
+                        break;
+                    }
+                    _ => break,
+                }
+            }
+            if paused.is_some() {
+                // the last frame stays up; the box is drawn over it every frame
+                {
+                    let mut s = c.st.borrow_mut();
+                    s.gfx.cram[508] = [0x10, 0x10, 0x18];
+                    s.gfx.cram[509] = [0xe8, 0xe8, 0xf0];
+                    s.gfx.cram[510] = [0xf0, 0xc0, 0x40];
+                    s.gfx.cram[511] = [0x60, 0x60, 0x78];
+                    let (w, h) = (136i32, 20 + items.len() as i32 * 14);
+                    let (x, y) = ((W as i32 - w) / 2, (H as i32 - h) / 2);
+                    s.gfx.fill_rect(x - 2, y - 2, w + 4, h + 4, 511);
+                    s.gfx.fill_rect(x, y, w, h, 508);
+                    s.gfx.text("PAUSED", x + 8, y + 6, 511);
+                    for (i, it) in items.iter().enumerate() {
+                        let ty = y + 20 + i as i32 * 14;
+                        if i == sel {
+                            s.gfx.text(">", x + 8, ty, 510);
+                        }
+                        s.gfx.text(it, x + 20, ty, if i == sel { 510 } else { 509 });
+                    }
+                }
+                fb.present(&c);
+                std::thread::sleep(frame);
+                next = Instant::now() + frame;
+                last = Instant::now();
+                continue;
+            }
+            input.bits &= !((1 << 4) | (1 << 5) | (1 << 10)); // the closing press isn't the game's
         }
         let elapsed = start.elapsed().as_secs_f64();
         let mut bits = input.bits;

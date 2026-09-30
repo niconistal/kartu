@@ -17,7 +17,11 @@ and `kartu playtest <cart>` to prove it's winnable and fair. Log `WIN` when the 
 function init()   end   -- once, after assets load
 function update() end   -- every frame: read buttons, move things
 function draw()   end   -- every frame: queue sprites/text, set scroll
+function on_quit() end  -- optional: the player chose SAVE & QUIT; call save() here
 ```
+- On a handheld, MENU pauses the game: RESUME / SAVE & QUIT / QUIT. SAVE & QUIT is offered only
+  when the cart defines `on_quit()`; it runs (one frame's budget), its `save()` is written, and
+  the game closes. QUIT closes without calling it.
 - A frame that runs > ~4M Lua instructions is stopped and the error shown on screen.
 - Any runtime error freezes the cart on a red error screen (message + line).
 - **What resets each frame:** only the sprite and text queues. Everything else **persists until

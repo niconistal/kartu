@@ -99,6 +99,7 @@ usage: kartu <command> <cart-dir> [options]
                  --load FILE       start from a save instead of from boot
                  --persist FILE    the cart's save()/load() string: read at boot, written at
                                    the end ([save fN] lines); without it load() is nil
+                 --on-quit         end with the cart's on_quit() (the handheld's SAVE & QUIT)
                  exit 2 if the cart errors (the run stops at the error frame)
   sound <cart>   render one sound without the game: --song NAME | --sfx NAME
                  [--secs N] [--wav F]; no name: list songs, sfx, instruments

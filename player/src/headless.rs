@@ -117,6 +117,15 @@ pub fn run(a: &[String]) -> Result<(), String> {
         }
     }
     let dt = t.elapsed().as_secs_f64();
+    // --on-quit: end the run the way the handheld's SAVE & QUIT does (the cart's on_quit())
+    if a.kv.contains_key("on-quit") && c.error.is_none() {
+        c.quit_hook()?;
+        println!("[quit] on_quit() {}", if c.has_quit_hook() { "ran" } else { "not defined" });
+        take_save(&mut c, ran, &mut saved);
+        for l in c.take_logs() {
+            println!("[log quit] {l}");
+        }
+    }
     if let (Some(p), Some(s)) = (persist, &saved) {
         std::fs::write(p, s).map_err(|e| format!("{p}: {e}"))?;
     }
